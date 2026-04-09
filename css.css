@@ -9,39 +9,39 @@
 .wizmage-pattern-bg-img.wizmage-cls { background-repeat: repeat !important; text-indent: 0 !important; }
 .wizmage-cls { -webkit-touch-callout: none !important; -webkit-user-select: none !important; user-select: none !important; }
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-0 { background-image: url(pattern0.png) !important; }
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-0 { background-image: var(--wzm-pattern-0, url(pattern0.png)) !important; }
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-0 { background-image: url(pattern-light0.png) !important; }
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-0 { background-image: var(--wzm-pattern-light-0, url(pattern-light0.png)) !important; }
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-1 { background-image: url(pattern1.png) !important; }
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-1 { background-image: var(--wzm-pattern-1, url(pattern1.png)) !important; }
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-1 { background-image: url(pattern-light1.png) !important; }
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-1 { background-image: var(--wzm-pattern-light-1, url(pattern-light1.png)) !important; }
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-2 { background-image: url(pattern2.png) !important; }
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-2 { background-image: var(--wzm-pattern-2, url(pattern2.png)) !important; }
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-2 { background-image: url(pattern-light2.png) !important; }
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-2 { background-image: var(--wzm-pattern-light-2, url(pattern-light2.png)) !important; }
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-3 { background-image: url(pattern3.png) !important; }
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-3 { background-image: var(--wzm-pattern-3, url(pattern3.png)) !important; }
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-3 { background-image: url(pattern-light3.png) !important; }
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-3 { background-image: var(--wzm-pattern-light-3, url(pattern-light3.png)) !important; }
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-4 { background-image: url(pattern4.png) !important; }
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-4 { background-image: var(--wzm-pattern-4, url(pattern4.png)) !important; }
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-4 { background-image: url(pattern-light4.png) !important; }
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-4 { background-image: var(--wzm-pattern-light-4, url(pattern-light4.png)) !important; }
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-5 { background-image: url(pattern5.png) !important; }
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-5 { background-image: var(--wzm-pattern-5, url(pattern5.png)) !important; }
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-5 { background-image: url(pattern-light5.png) !important; }
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-5 { background-image: var(--wzm-pattern-light-5, url(pattern-light5.png)) !important; }
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-6 { background-image: url(pattern6.png) !important; }
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-6 { background-image: var(--wzm-pattern-6, url(pattern6.png)) !important; }
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-6 { background-image: url(pattern-light6.png) !important; }
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-6 { background-image: var(--wzm-pattern-light-6, url(pattern-light6.png)) !important; }
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-7 { background-image: url(pattern7.png) !important; }
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-7 { background-image: var(--wzm-pattern-7, url(pattern7.png)) !important; }
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-7 { background-image: url(pattern-light7.png) !important; }
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-7 { background-image: var(--wzm-pattern-light-7, url(pattern-light7.png)) !important; }
 
-.wizmage-pattern-bg-img.wizmage-cls.wizmage-always { background-image: url(pattern-light0.png) !important; }
-.wizmage-pattern-bg-img.wizmage-cls.wizmage-always.wizmage-light { background-image: url(pattern-light0.png) !important; }
+.wizmage-pattern-bg-img.wizmage-cls.wizmage-always { background-image: var(--wzm-pattern-light-0, url(pattern-light0.png)) !important; }
+.wizmage-pattern-bg-img.wizmage-cls.wizmage-always.wizmage-light { background-image: var(--wzm-pattern-light-0, url(pattern-light0.png)) !important; }
 
 html.wizmage-running div:before, html.wizmage-running div:after { background-image: none !important; }

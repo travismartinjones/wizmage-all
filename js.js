@@ -243,7 +243,16 @@ function wzmAnalyzeImage(imgUrl, callback) {
             callback(r);
     });
 }
-let showAll = false, extensionUrl = wzmGetURL(''), urlExtensionUrl = 'url("' + extensionUrl, blankImg = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///////yH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==', urlBlankImg = 'url("' + blankImg + '")', patternCSSUrl = 'url(' + extensionUrl + "pattern.png" + ')', patternLightUrl = extensionUrl + "pattern-light.png", patternLightCSSUrl = 'url(' + patternLightUrl + ')', eyeCSSUrl = 'url(' + extensionUrl + "eye.svg" + ')', undoCSSUrl = 'url(' + extensionUrl + "undo.png" + ')', tagList = ['IMG', 'DIV', 'SPAN', 'A', 'UL', 'LI', 'TD', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'I', 'STRONG', 'B', 'BIG', 'BUTTON', 'CENTER', 'SECTION', 'TABLE', 'FIGURE', 'ASIDE', 'HEADER', 'VIDEO', 'P', 'ARTICLE', 'PICTURE', 'BA-IMAGE'], tagListCSS = tagList.join(), iframes = [], contentLoaded = false, settings, quotesRegex = /['"]/g;
+let showAll = false, extensionUrl = wzmGetURL(''), urlExtensionUrl = 'url("' + extensionUrl, blankImg = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///////yH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==', urlBlankImg = 'url("' + blankImg + '")', eyeCSSUrl = 'url(' + extensionUrl + "eye.svg" + ')', undoCSSUrl = 'url(' + extensionUrl + "undo.png" + ')', tagList = ['IMG', 'DIV', 'SPAN', 'A', 'UL', 'LI', 'TD', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'I', 'STRONG', 'B', 'BIG', 'BUTTON', 'CENTER', 'SECTION', 'TABLE', 'FIGURE', 'ASIDE', 'HEADER', 'VIDEO', 'P', 'ARTICLE', 'PICTURE', 'BA-IMAGE'], tagListCSS = tagList.join(), iframes = [], contentLoaded = false, settings, quotesRegex = /['"]/g;
+function wzmApplyPatternAssetVars(doc) {
+    if (!doc || !doc.documentElement || !doc.documentElement.style)
+        return;
+    let style = doc.documentElement.style;
+    for (let i = 0; i < 8; i++) {
+        style.setProperty('--wzm-pattern-' + i, 'url("' + wzmGetURL('pattern' + i + '.png') + '")');
+        style.setProperty('--wzm-pattern-light-' + i, 'url("' + wzmGetURL('pattern-light' + i + '.png') + '")');
+    }
+}
 //keep track of contentLoaded
 window.addEventListener('DOMContentLoaded', function () { contentLoaded = true; });
 //start by seeing if is active or is paused etc.
@@ -632,6 +641,7 @@ function DoWin(win, winContentLoaded) {
             ShowImages();
             return;
         }
+        wzmApplyPatternAssetVars(doc);
         //show body
         AddClass(doc.documentElement, 'wizmage-show-html wizmage-running');
         //create eye
@@ -651,7 +661,7 @@ function DoWin(win, winContentLoaded) {
             for (let i = 0; i < 8; i++) {
                 let div = doc.createElement('div');
                 div.style.opacity = div.style.width = div.style.height = '0';
-                div.className = 'wizmage-pattern-bg-img wizmage-light wizmage-shade-' + i;
+                div.className = 'wizmage-pattern-bg-img wizmage-cls wizmage-light wizmage-shade-' + i;
                 doc.body.appendChild(div);
             }
         }
