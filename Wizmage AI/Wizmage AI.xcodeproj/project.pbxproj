@@ -1,0 +1,1203 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		E818BE032F2323B1005A3C39 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E818BE022F2323B1005A3C39 /* AppDelegate.swift */; };
+		E818BE052F2323B1005A3C39 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E818BE042F2323B1005A3C39 /* SceneDelegate.swift */; };
+		E818BE082F2323B1005A3C39 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = E818BE062F2323B1005A3C39 /* LaunchScreen.storyboard */; };
+		E818BE0B2F2323B1005A3C39 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = E818BE092F2323B1005A3C39 /* Main.storyboard */; };
+		E818BE142F2323B1005A3C39 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E818BE132F2323B1005A3C39 /* AppDelegate.swift */; };
+		E818BE172F2323B1005A3C39 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = E818BE152F2323B1005A3C39 /* Main.storyboard */; };
+		E818BE1E2F2323B1005A3C39 /* Wizmage AI Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = E818BE1D2F2323B1005A3C39 /* Wizmage AI Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		E818BE282F2323B1005A3C39 /* Wizmage AI Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = E818BE272F2323B1005A3C39 /* Wizmage AI Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		E818BE2D2F2323B1005A3C39 /* Main.html in Resources */ = {isa = PBXBuildFile; fileRef = E818BDF22F2323B0005A3C39 /* Main.html */; };
+		E818BE2E2F2323B1005A3C39 /* Main.html in Resources */ = {isa = PBXBuildFile; fileRef = E818BDF22F2323B0005A3C39 /* Main.html */; };
+		E818BE2F2F2323B1005A3C39 /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BDF42F2323B0005A3C39 /* Icon.png */; };
+		E818BE302F2323B1005A3C39 /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BDF42F2323B0005A3C39 /* Icon.png */; };
+		E818BE312F2323B1005A3C39 /* Style.css in Resources */ = {isa = PBXBuildFile; fileRef = E818BDF52F2323B0005A3C39 /* Style.css */; };
+		E818BE322F2323B1005A3C39 /* Style.css in Resources */ = {isa = PBXBuildFile; fileRef = E818BDF52F2323B0005A3C39 /* Style.css */; };
+		E818BE332F2323B1005A3C39 /* Script.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BDF62F2323B0005A3C39 /* Script.js */; };
+		E818BE342F2323B1005A3C39 /* Script.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BDF62F2323B0005A3C39 /* Script.js */; };
+		E818BE352F2323B1005A3C39 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E818BDF72F2323B0005A3C39 /* ViewController.swift */; };
+		E818BE362F2323B1005A3C39 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E818BDF72F2323B0005A3C39 /* ViewController.swift */; };
+		E818BE372F2323B1005A3C39 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E818BDF82F2323B1005A3C39 /* Assets.xcassets */; };
+		E818BE382F2323B1005A3C39 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E818BDF82F2323B1005A3C39 /* Assets.xcassets */; };
+		E818BE392F2323B1005A3C39 /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = E818BDFA2F2323B1005A3C39 /* SafariWebExtensionHandler.swift */; };
+		E818BE3A2F2323B1005A3C39 /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = E818BDFA2F2323B1005A3C39 /* SafariWebExtensionHandler.swift */; };
+		E818BE742F2323B2005A3C39 /* gear.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE4C2F2323B2005A3C39 /* gear.png */; };
+		E818BE752F2323B2005A3C39 /* icon16.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE4D2F2323B2005A3C39 /* icon16.png */; };
+		E818BE762F2323B2005A3C39 /* migrate-settings.htm in Resources */ = {isa = PBXBuildFile; fileRef = E818BE4E2F2323B2005A3C39 /* migrate-settings.htm */; };
+		E818BE772F2323B2005A3C39 /* js.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BE4F2F2323B2005A3C39 /* js.js */; };
+		E818BE782F2323B2005A3C39 /* icon.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE502F2323B2005A3C39 /* icon.png */; };
+		E818BE792F2323B2005A3C39 /* popup.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BE512F2323B2005A3C39 /* popup.js */; };
+		E818BE7A2F2323B2005A3C39 /* clear.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE522F2323B2005A3C39 /* clear.png */; };
+		E818BE7B2F2323B2005A3C39 /* icon48.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE532F2323B2005A3C39 /* icon48.png */; };
+		E818BE7C2F2323B2005A3C39 /* options.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BE542F2323B2005A3C39 /* options.js */; };
+		E818BE7E2F2323B2005A3C39 /* icon128.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE562F2323B2005A3C39 /* icon128.png */; };
+		E818BE7F2F2323B2005A3C39 /* _metadata in Resources */ = {isa = PBXBuildFile; fileRef = E818BE572F2323B2005A3C39 /* _metadata */; };
+		E818BE802F2323B2005A3C39 /* pattern4.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE582F2323B2005A3C39 /* pattern4.png */; };
+		E818BE812F2323B2005A3C39 /* icon-d.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE592F2323B2005A3C39 /* icon-d.png */; };
+		E818BE822F2323B2005A3C39 /* pattern5.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE5A2F2323B2005A3C39 /* pattern5.png */; };
+		E818BE832F2323B2005A3C39 /* pattern7.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE5B2F2323B2005A3C39 /* pattern7.png */; };
+		E818BE842F2323B2005A3C39 /* css.css in Resources */ = {isa = PBXBuildFile; fileRef = E818BE5C2F2323B2005A3C39 /* css.css */; };
+		E818BE852F2323B2005A3C39 /* pattern6.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE5D2F2323B2005A3C39 /* pattern6.png */; };
+		E818BE862F2323B2005A3C39 /* pattern2.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE5E2F2323B2005A3C39 /* pattern2.png */; };
+		E818BE872F2323B2005A3C39 /* pattern3.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE5F2F2323B2005A3C39 /* pattern3.png */; };
+		E818BE882F2323B2005A3C39 /* undo.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE602F2323B2005A3C39 /* undo.png */; };
+		E818BE892F2323B2005A3C39 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = E818BE612F2323B2005A3C39 /* manifest.json */; };
+		E818BE8A2F2323B2005A3C39 /* pattern1.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE622F2323B2005A3C39 /* pattern1.png */; };
+		E818BE8B2F2323B2005A3C39 /* migrate-settings.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BE632F2323B2005A3C39 /* migrate-settings.js */; };
+		E818BE8C2F2323B2005A3C39 /* pattern0.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE642F2323B2005A3C39 /* pattern0.png */; };
+		E818BE8D2F2323B2005A3C39 /* green-tick.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE652F2323B2005A3C39 /* green-tick.png */; };
+		E818BE8E2F2323B2005A3C39 /* options.htm in Resources */ = {isa = PBXBuildFile; fileRef = E818BE662F2323B2005A3C39 /* options.htm */; };
+		E818BE8F2F2323B2005A3C39 /* pattern-light4.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE672F2323B2005A3C39 /* pattern-light4.png */; };
+		E818BE902F2323B2005A3C39 /* eye.svg in Resources */ = {isa = PBXBuildFile; fileRef = E818BE682F2323B2005A3C39 /* eye.svg */; };
+		E818BE912F2323B2005A3C39 /* popup.css in Resources */ = {isa = PBXBuildFile; fileRef = E818BE692F2323B2005A3C39 /* popup.css */; };
+		E818BE922F2323B2005A3C39 /* pattern-light5.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE6A2F2323B2005A3C39 /* pattern-light5.png */; };
+		E818BE932F2323B2005A3C39 /* pattern-light7.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE6B2F2323B2005A3C39 /* pattern-light7.png */; };
+		E818BE942F2323B2005A3C39 /* pattern-light6.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE6C2F2323B2005A3C39 /* pattern-light6.png */; };
+		E818BE952F2323B2005A3C39 /* pattern-light2.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE6D2F2323B2005A3C39 /* pattern-light2.png */; };
+		E818BE962F2323B2005A3C39 /* service_worker.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BE6E2F2323B2005A3C39 /* service_worker.js */; };
+		E818BE972F2323B2005A3C39 /* pattern-light3.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE6F2F2323B2005A3C39 /* pattern-light3.png */; };
+		E818BE982F2323B2005A3C39 /* options.css in Resources */ = {isa = PBXBuildFile; fileRef = E818BE702F2323B2005A3C39 /* options.css */; };
+		E818BE992F2323B2005A3C39 /* pattern-light1.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE712F2323B2005A3C39 /* pattern-light1.png */; };
+		E818BE9A2F2323B2005A3C39 /* popup.htm in Resources */ = {isa = PBXBuildFile; fileRef = E818BE722F2323B2005A3C39 /* popup.htm */; };
+		E818BE9B2F2323B2005A3C39 /* pattern-light0.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE732F2323B2005A3C39 /* pattern-light0.png */; };
+		E818BE9C2F2323B2005A3C39 /* gear.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE4C2F2323B2005A3C39 /* gear.png */; };
+		E818BE9D2F2323B2005A3C39 /* icon16.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE4D2F2323B2005A3C39 /* icon16.png */; };
+		E818BE9E2F2323B2005A3C39 /* migrate-settings.htm in Resources */ = {isa = PBXBuildFile; fileRef = E818BE4E2F2323B2005A3C39 /* migrate-settings.htm */; };
+		E818BE9F2F2323B2005A3C39 /* js.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BE4F2F2323B2005A3C39 /* js.js */; };
+		E818BEA02F2323B2005A3C39 /* icon.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE502F2323B2005A3C39 /* icon.png */; };
+		E818BEA12F2323B2005A3C39 /* popup.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BE512F2323B2005A3C39 /* popup.js */; };
+		E818BEA22F2323B2005A3C39 /* clear.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE522F2323B2005A3C39 /* clear.png */; };
+		E818BEA32F2323B2005A3C39 /* icon48.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE532F2323B2005A3C39 /* icon48.png */; };
+		E818BEA42F2323B2005A3C39 /* options.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BE542F2323B2005A3C39 /* options.js */; };
+		E818BEA62F2323B2005A3C39 /* icon128.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE562F2323B2005A3C39 /* icon128.png */; };
+		E818BEA72F2323B2005A3C39 /* _metadata in Resources */ = {isa = PBXBuildFile; fileRef = E818BE572F2323B2005A3C39 /* _metadata */; };
+		E818BEA82F2323B2005A3C39 /* pattern4.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE582F2323B2005A3C39 /* pattern4.png */; };
+		E818BEA92F2323B2005A3C39 /* icon-d.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE592F2323B2005A3C39 /* icon-d.png */; };
+		E818BEAA2F2323B2005A3C39 /* pattern5.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE5A2F2323B2005A3C39 /* pattern5.png */; };
+		E818BEAB2F2323B2005A3C39 /* pattern7.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE5B2F2323B2005A3C39 /* pattern7.png */; };
+		E818BEAC2F2323B2005A3C39 /* css.css in Resources */ = {isa = PBXBuildFile; fileRef = E818BE5C2F2323B2005A3C39 /* css.css */; };
+		E818BEAD2F2323B2005A3C39 /* pattern6.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE5D2F2323B2005A3C39 /* pattern6.png */; };
+		E818BEAE2F2323B2005A3C39 /* pattern2.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE5E2F2323B2005A3C39 /* pattern2.png */; };
+		E818BEAF2F2323B2005A3C39 /* pattern3.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE5F2F2323B2005A3C39 /* pattern3.png */; };
+		E818BEB02F2323B2005A3C39 /* undo.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE602F2323B2005A3C39 /* undo.png */; };
+		E818BEB12F2323B2005A3C39 /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = E818BE612F2323B2005A3C39 /* manifest.json */; };
+		E818BEB22F2323B2005A3C39 /* pattern1.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE622F2323B2005A3C39 /* pattern1.png */; };
+		E818BEB32F2323B2005A3C39 /* migrate-settings.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BE632F2323B2005A3C39 /* migrate-settings.js */; };
+		E818BEB42F2323B2005A3C39 /* pattern0.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE642F2323B2005A3C39 /* pattern0.png */; };
+		E818BEB52F2323B2005A3C39 /* green-tick.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE652F2323B2005A3C39 /* green-tick.png */; };
+		E818BEB62F2323B2005A3C39 /* options.htm in Resources */ = {isa = PBXBuildFile; fileRef = E818BE662F2323B2005A3C39 /* options.htm */; };
+		E818BEB72F2323B2005A3C39 /* pattern-light4.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE672F2323B2005A3C39 /* pattern-light4.png */; };
+		E818BEB82F2323B2005A3C39 /* eye.svg in Resources */ = {isa = PBXBuildFile; fileRef = E818BE682F2323B2005A3C39 /* eye.svg */; };
+		E818BEB92F2323B2005A3C39 /* popup.css in Resources */ = {isa = PBXBuildFile; fileRef = E818BE692F2323B2005A3C39 /* popup.css */; };
+		E818BEBA2F2323B2005A3C39 /* pattern-light5.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE6A2F2323B2005A3C39 /* pattern-light5.png */; };
+		E818BEBB2F2323B2005A3C39 /* pattern-light7.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE6B2F2323B2005A3C39 /* pattern-light7.png */; };
+		E818BEBC2F2323B2005A3C39 /* pattern-light6.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE6C2F2323B2005A3C39 /* pattern-light6.png */; };
+		E818BEBD2F2323B2005A3C39 /* pattern-light2.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE6D2F2323B2005A3C39 /* pattern-light2.png */; };
+		E818BEBE2F2323B2005A3C39 /* service_worker.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BE6E2F2323B2005A3C39 /* service_worker.js */; };
+		E818BEBF2F2323B2005A3C39 /* pattern-light3.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE6F2F2323B2005A3C39 /* pattern-light3.png */; };
+		E818BEC02F2323B2005A3C39 /* options.css in Resources */ = {isa = PBXBuildFile; fileRef = E818BE702F2323B2005A3C39 /* options.css */; };
+		E818BEC12F2323B2005A3C39 /* pattern-light1.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE712F2323B2005A3C39 /* pattern-light1.png */; };
+		E818BEC22F2323B2005A3C39 /* popup.htm in Resources */ = {isa = PBXBuildFile; fileRef = E818BE722F2323B2005A3C39 /* popup.htm */; };
+		E818BEC32F2323B2005A3C39 /* pattern-light0.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE732F2323B2005A3C39 /* pattern-light0.png */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		E818BE1F2F2323B1005A3C39 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E818BDEC2F2323B0005A3C39 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E818BE1C2F2323B1005A3C39;
+			remoteInfo = "Wizmage AI Extension (iOS)";
+		};
+		E818BE292F2323B1005A3C39 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E818BDEC2F2323B0005A3C39 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E818BE262F2323B1005A3C39;
+			remoteInfo = "Wizmage AI Extension (macOS)";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		E818BE402F2323B1005A3C39 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				E818BE1E2F2323B1005A3C39 /* Wizmage AI Extension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E818BE472F2323B1005A3C39 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				E818BE282F2323B1005A3C39 /* Wizmage AI Extension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		E818BDF32F2323B0005A3C39 /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = Base; path = Base.lproj/Main.html; sourceTree = "<group>"; };
+		E818BDF42F2323B0005A3C39 /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
+		E818BDF52F2323B0005A3C39 /* Style.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = Style.css; sourceTree = "<group>"; };
+		E818BDF62F2323B0005A3C39 /* Script.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Script.js; sourceTree = "<group>"; };
+		E818BDF72F2323B0005A3C39 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		E818BDF82F2323B1005A3C39 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		E818BDFA2F2323B1005A3C39 /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
+		E818BDFF2F2323B1005A3C39 /* Wizmage AI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Wizmage AI.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E818BE022F2323B1005A3C39 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		E818BE042F2323B1005A3C39 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		E818BE072F2323B1005A3C39 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		E818BE0A2F2323B1005A3C39 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		E818BE0C2F2323B1005A3C39 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E818BE112F2323B1005A3C39 /* Wizmage AI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Wizmage AI.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E818BE132F2323B1005A3C39 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		E818BE162F2323B1005A3C39 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		E818BE182F2323B1005A3C39 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E818BE1D2F2323B1005A3C39 /* Wizmage AI Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Wizmage AI Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E818BE222F2323B1005A3C39 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E818BE272F2323B1005A3C39 /* Wizmage AI Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Wizmage AI Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		E818BE2C2F2323B1005A3C39 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E818BE4C2F2323B2005A3C39 /* gear.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = gear.png; path = ../../gear.png; sourceTree = "<group>"; };
+		E818BE4D2F2323B2005A3C39 /* icon16.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = icon16.png; path = ../../icon16.png; sourceTree = "<group>"; };
+		E818BE4E2F2323B2005A3C39 /* migrate-settings.htm */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = "migrate-settings.htm"; path = "../../migrate-settings.htm"; sourceTree = "<group>"; };
+		E818BE4F2F2323B2005A3C39 /* js.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = js.js; path = ../../js.js; sourceTree = "<group>"; };
+		E818BE502F2323B2005A3C39 /* icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = icon.png; path = ../../icon.png; sourceTree = "<group>"; };
+		E818BE512F2323B2005A3C39 /* popup.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = popup.js; path = ../../popup.js; sourceTree = "<group>"; };
+		E818BE522F2323B2005A3C39 /* clear.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = clear.png; path = ../../clear.png; sourceTree = "<group>"; };
+		E818BE532F2323B2005A3C39 /* icon48.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = icon48.png; path = ../../icon48.png; sourceTree = "<group>"; };
+		E818BE542F2323B2005A3C39 /* options.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = options.js; path = ../../options.js; sourceTree = "<group>"; };
+		E818BE562F2323B2005A3C39 /* icon128.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = icon128.png; path = ../../icon128.png; sourceTree = "<group>"; };
+		E818BE572F2323B2005A3C39 /* _metadata */ = {isa = PBXFileReference; lastKnownFileType = folder; name = _metadata; path = ../../_metadata; sourceTree = "<group>"; };
+		E818BE582F2323B2005A3C39 /* pattern4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = pattern4.png; path = ../../pattern4.png; sourceTree = "<group>"; };
+		E818BE592F2323B2005A3C39 /* icon-d.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "icon-d.png"; path = "../../icon-d.png"; sourceTree = "<group>"; };
+		E818BE5A2F2323B2005A3C39 /* pattern5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = pattern5.png; path = ../../pattern5.png; sourceTree = "<group>"; };
+		E818BE5B2F2323B2005A3C39 /* pattern7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = pattern7.png; path = ../../pattern7.png; sourceTree = "<group>"; };
+		E818BE5C2F2323B2005A3C39 /* css.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; name = css.css; path = ../../css.css; sourceTree = "<group>"; };
+		E818BE5D2F2323B2005A3C39 /* pattern6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = pattern6.png; path = ../../pattern6.png; sourceTree = "<group>"; };
+		E818BE5E2F2323B2005A3C39 /* pattern2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = pattern2.png; path = ../../pattern2.png; sourceTree = "<group>"; };
+		E818BE5F2F2323B2005A3C39 /* pattern3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = pattern3.png; path = ../../pattern3.png; sourceTree = "<group>"; };
+		E818BE602F2323B2005A3C39 /* undo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = undo.png; path = ../../undo.png; sourceTree = "<group>"; };
+		E818BE612F2323B2005A3C39 /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = manifest.json; path = ../../manifest.json; sourceTree = "<group>"; };
+		E818BE622F2323B2005A3C39 /* pattern1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = pattern1.png; path = ../../pattern1.png; sourceTree = "<group>"; };
+		E818BE632F2323B2005A3C39 /* migrate-settings.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "migrate-settings.js"; path = "../../migrate-settings.js"; sourceTree = "<group>"; };
+		E818BE642F2323B2005A3C39 /* pattern0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = pattern0.png; path = ../../pattern0.png; sourceTree = "<group>"; };
+		E818BE652F2323B2005A3C39 /* green-tick.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "green-tick.png"; path = "../../green-tick.png"; sourceTree = "<group>"; };
+		E818BE662F2323B2005A3C39 /* options.htm */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = options.htm; path = ../../options.htm; sourceTree = "<group>"; };
+		E818BE672F2323B2005A3C39 /* pattern-light4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "pattern-light4.png"; path = "../../pattern-light4.png"; sourceTree = "<group>"; };
+		E818BE682F2323B2005A3C39 /* eye.svg */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = eye.svg; path = ../../eye.svg; sourceTree = "<group>"; };
+		E818BE692F2323B2005A3C39 /* popup.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; name = popup.css; path = ../../popup.css; sourceTree = "<group>"; };
+		E818BE6A2F2323B2005A3C39 /* pattern-light5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "pattern-light5.png"; path = "../../pattern-light5.png"; sourceTree = "<group>"; };
+		E818BE6B2F2323B2005A3C39 /* pattern-light7.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "pattern-light7.png"; path = "../../pattern-light7.png"; sourceTree = "<group>"; };
+		E818BE6C2F2323B2005A3C39 /* pattern-light6.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "pattern-light6.png"; path = "../../pattern-light6.png"; sourceTree = "<group>"; };
+		E818BE6D2F2323B2005A3C39 /* pattern-light2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "pattern-light2.png"; path = "../../pattern-light2.png"; sourceTree = "<group>"; };
+		E818BE6E2F2323B2005A3C39 /* service_worker.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = service_worker.js; path = ../../service_worker.js; sourceTree = "<group>"; };
+		E818BE6F2F2323B2005A3C39 /* pattern-light3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "pattern-light3.png"; path = "../../pattern-light3.png"; sourceTree = "<group>"; };
+		E818BE702F2323B2005A3C39 /* options.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; name = options.css; path = ../../options.css; sourceTree = "<group>"; };
+		E818BE712F2323B2005A3C39 /* pattern-light1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "pattern-light1.png"; path = "../../pattern-light1.png"; sourceTree = "<group>"; };
+		E818BE722F2323B2005A3C39 /* popup.htm */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = popup.htm; path = ../../popup.htm; sourceTree = "<group>"; };
+		E818BE732F2323B2005A3C39 /* pattern-light0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "pattern-light0.png"; path = "../../pattern-light0.png"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		E818BDFC2F2323B1005A3C39 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E818BE0E2F2323B1005A3C39 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E818BE1A2F2323B1005A3C39 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E818BE242F2323B1005A3C39 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		E818BDEB2F2323B0005A3C39 = {
+			isa = PBXGroup;
+			children = (
+				E818BDF02F2323B0005A3C39 /* Shared (App) */,
+				E818BDF92F2323B1005A3C39 /* Shared (Extension) */,
+				E818BE012F2323B1005A3C39 /* iOS (App) */,
+				E818BE122F2323B1005A3C39 /* macOS (App) */,
+				E818BE212F2323B1005A3C39 /* iOS (Extension) */,
+				E818BE2B2F2323B1005A3C39 /* macOS (Extension) */,
+				E818BE002F2323B1005A3C39 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E818BDF02F2323B0005A3C39 /* Shared (App) */ = {
+			isa = PBXGroup;
+			children = (
+				E818BDF72F2323B0005A3C39 /* ViewController.swift */,
+				E818BDF82F2323B1005A3C39 /* Assets.xcassets */,
+				E818BDF12F2323B0005A3C39 /* Resources */,
+			);
+			path = "Shared (App)";
+			sourceTree = "<group>";
+		};
+		E818BDF12F2323B0005A3C39 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				E818BDF22F2323B0005A3C39 /* Main.html */,
+				E818BDF42F2323B0005A3C39 /* Icon.png */,
+				E818BDF52F2323B0005A3C39 /* Style.css */,
+				E818BDF62F2323B0005A3C39 /* Script.js */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		E818BDF92F2323B1005A3C39 /* Shared (Extension) */ = {
+			isa = PBXGroup;
+			children = (
+				E818BE4B2F2323B2005A3C39 /* Resources */,
+				E818BDFA2F2323B1005A3C39 /* SafariWebExtensionHandler.swift */,
+			);
+			path = "Shared (Extension)";
+			sourceTree = "<group>";
+		};
+		E818BE002F2323B1005A3C39 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E818BDFF2F2323B1005A3C39 /* Wizmage AI.app */,
+				E818BE112F2323B1005A3C39 /* Wizmage AI.app */,
+				E818BE1D2F2323B1005A3C39 /* Wizmage AI Extension.appex */,
+				E818BE272F2323B1005A3C39 /* Wizmage AI Extension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		E818BE012F2323B1005A3C39 /* iOS (App) */ = {
+			isa = PBXGroup;
+			children = (
+				E818BE022F2323B1005A3C39 /* AppDelegate.swift */,
+				E818BE042F2323B1005A3C39 /* SceneDelegate.swift */,
+				E818BE062F2323B1005A3C39 /* LaunchScreen.storyboard */,
+				E818BE092F2323B1005A3C39 /* Main.storyboard */,
+				E818BE0C2F2323B1005A3C39 /* Info.plist */,
+			);
+			path = "iOS (App)";
+			sourceTree = "<group>";
+		};
+		E818BE122F2323B1005A3C39 /* macOS (App) */ = {
+			isa = PBXGroup;
+			children = (
+				E818BE132F2323B1005A3C39 /* AppDelegate.swift */,
+				E818BE152F2323B1005A3C39 /* Main.storyboard */,
+				E818BE182F2323B1005A3C39 /* Info.plist */,
+			);
+			path = "macOS (App)";
+			sourceTree = "<group>";
+		};
+		E818BE212F2323B1005A3C39 /* iOS (Extension) */ = {
+			isa = PBXGroup;
+			children = (
+				E818BE222F2323B1005A3C39 /* Info.plist */,
+			);
+			path = "iOS (Extension)";
+			sourceTree = "<group>";
+		};
+		E818BE2B2F2323B1005A3C39 /* macOS (Extension) */ = {
+			isa = PBXGroup;
+			children = (
+				E818BE2C2F2323B1005A3C39 /* Info.plist */,
+			);
+			path = "macOS (Extension)";
+			sourceTree = "<group>";
+		};
+		E818BE4B2F2323B2005A3C39 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				E818BE4C2F2323B2005A3C39 /* gear.png */,
+				E818BE4D2F2323B2005A3C39 /* icon16.png */,
+				E818BE4E2F2323B2005A3C39 /* migrate-settings.htm */,
+				E818BE4F2F2323B2005A3C39 /* js.js */,
+				E818BE502F2323B2005A3C39 /* icon.png */,
+				E818BE512F2323B2005A3C39 /* popup.js */,
+				E818BE522F2323B2005A3C39 /* clear.png */,
+				E818BE532F2323B2005A3C39 /* icon48.png */,
+				E818BE542F2323B2005A3C39 /* options.js */,
+				E818BE562F2323B2005A3C39 /* icon128.png */,
+				E818BE572F2323B2005A3C39 /* _metadata */,
+				E818BE582F2323B2005A3C39 /* pattern4.png */,
+				E818BE592F2323B2005A3C39 /* icon-d.png */,
+				E818BE5A2F2323B2005A3C39 /* pattern5.png */,
+				E818BE5B2F2323B2005A3C39 /* pattern7.png */,
+				E818BE5C2F2323B2005A3C39 /* css.css */,
+				E818BE5D2F2323B2005A3C39 /* pattern6.png */,
+				E818BE5E2F2323B2005A3C39 /* pattern2.png */,
+				E818BE5F2F2323B2005A3C39 /* pattern3.png */,
+				E818BE602F2323B2005A3C39 /* undo.png */,
+				E818BE612F2323B2005A3C39 /* manifest.json */,
+				E818BE622F2323B2005A3C39 /* pattern1.png */,
+				E818BE632F2323B2005A3C39 /* migrate-settings.js */,
+				E818BE642F2323B2005A3C39 /* pattern0.png */,
+				E818BE652F2323B2005A3C39 /* green-tick.png */,
+				E818BE662F2323B2005A3C39 /* options.htm */,
+				E818BE672F2323B2005A3C39 /* pattern-light4.png */,
+				E818BE682F2323B2005A3C39 /* eye.svg */,
+				E818BE692F2323B2005A3C39 /* popup.css */,
+				E818BE6A2F2323B2005A3C39 /* pattern-light5.png */,
+				E818BE6B2F2323B2005A3C39 /* pattern-light7.png */,
+				E818BE6C2F2323B2005A3C39 /* pattern-light6.png */,
+				E818BE6D2F2323B2005A3C39 /* pattern-light2.png */,
+				E818BE6E2F2323B2005A3C39 /* service_worker.js */,
+				E818BE6F2F2323B2005A3C39 /* pattern-light3.png */,
+				E818BE702F2323B2005A3C39 /* options.css */,
+				E818BE712F2323B2005A3C39 /* pattern-light1.png */,
+				E818BE722F2323B2005A3C39 /* popup.htm */,
+				E818BE732F2323B2005A3C39 /* pattern-light0.png */,
+			);
+			name = Resources;
+			path = "Shared (Extension)";
+			sourceTree = SOURCE_ROOT;
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E818BDFE2F2323B1005A3C39 /* Wizmage AI (iOS) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E818BE412F2323B1005A3C39 /* Build configuration list for PBXNativeTarget "Wizmage AI (iOS)" */;
+			buildPhases = (
+				E818BDFB2F2323B1005A3C39 /* Sources */,
+				E818BDFC2F2323B1005A3C39 /* Frameworks */,
+				E818BDFD2F2323B1005A3C39 /* Resources */,
+				E818BE402F2323B1005A3C39 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E818BE202F2323B1005A3C39 /* PBXTargetDependency */,
+			);
+			name = "Wizmage AI (iOS)";
+			packageProductDependencies = (
+			);
+			productName = "Wizmage AI (iOS)";
+			productReference = E818BDFF2F2323B1005A3C39 /* Wizmage AI.app */;
+			productType = "com.apple.product-type.application";
+		};
+		E818BE102F2323B1005A3C39 /* Wizmage AI (macOS) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E818BE482F2323B1005A3C39 /* Build configuration list for PBXNativeTarget "Wizmage AI (macOS)" */;
+			buildPhases = (
+				E818BE0D2F2323B1005A3C39 /* Sources */,
+				E818BE0E2F2323B1005A3C39 /* Frameworks */,
+				E818BE0F2F2323B1005A3C39 /* Resources */,
+				E818BE472F2323B1005A3C39 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E818BE2A2F2323B1005A3C39 /* PBXTargetDependency */,
+			);
+			name = "Wizmage AI (macOS)";
+			packageProductDependencies = (
+			);
+			productName = "Wizmage AI (macOS)";
+			productReference = E818BE112F2323B1005A3C39 /* Wizmage AI.app */;
+			productType = "com.apple.product-type.application";
+		};
+		E818BE1C2F2323B1005A3C39 /* Wizmage AI Extension (iOS) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E818BE3D2F2323B1005A3C39 /* Build configuration list for PBXNativeTarget "Wizmage AI Extension (iOS)" */;
+			buildPhases = (
+				E818BE192F2323B1005A3C39 /* Sources */,
+				E818BE1A2F2323B1005A3C39 /* Frameworks */,
+				E818BE1B2F2323B1005A3C39 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Wizmage AI Extension (iOS)";
+			packageProductDependencies = (
+			);
+			productName = "Wizmage AI Extension (iOS)";
+			productReference = E818BE1D2F2323B1005A3C39 /* Wizmage AI Extension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		E818BE262F2323B1005A3C39 /* Wizmage AI Extension (macOS) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E818BE442F2323B1005A3C39 /* Build configuration list for PBXNativeTarget "Wizmage AI Extension (macOS)" */;
+			buildPhases = (
+				E818BE232F2323B1005A3C39 /* Sources */,
+				E818BE242F2323B1005A3C39 /* Frameworks */,
+				E818BE252F2323B1005A3C39 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Wizmage AI Extension (macOS)";
+			packageProductDependencies = (
+			);
+			productName = "Wizmage AI Extension (macOS)";
+			productReference = E818BE272F2323B1005A3C39 /* Wizmage AI Extension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E818BDEC2F2323B0005A3C39 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2620;
+				LastUpgradeCheck = 2620;
+				TargetAttributes = {
+					E818BDFE2F2323B1005A3C39 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					E818BE102F2323B1005A3C39 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					E818BE1C2F2323B1005A3C39 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					E818BE262F2323B1005A3C39 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+				};
+			};
+			buildConfigurationList = E818BDEF2F2323B0005A3C39 /* Build configuration list for PBXProject "Wizmage AI" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = E818BDEB2F2323B0005A3C39;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = E818BE002F2323B1005A3C39 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E818BDFE2F2323B1005A3C39 /* Wizmage AI (iOS) */,
+				E818BE102F2323B1005A3C39 /* Wizmage AI (macOS) */,
+				E818BE1C2F2323B1005A3C39 /* Wizmage AI Extension (iOS) */,
+				E818BE262F2323B1005A3C39 /* Wizmage AI Extension (macOS) */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		E818BDFD2F2323B1005A3C39 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E818BE2F2F2323B1005A3C39 /* Icon.png in Resources */,
+				E818BE082F2323B1005A3C39 /* LaunchScreen.storyboard in Resources */,
+				E818BE2D2F2323B1005A3C39 /* Main.html in Resources */,
+				E818BE332F2323B1005A3C39 /* Script.js in Resources */,
+				E818BE372F2323B1005A3C39 /* Assets.xcassets in Resources */,
+				E818BE0B2F2323B1005A3C39 /* Main.storyboard in Resources */,
+				E818BE312F2323B1005A3C39 /* Style.css in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E818BE0F2F2323B1005A3C39 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E818BE302F2323B1005A3C39 /* Icon.png in Resources */,
+				E818BE322F2323B1005A3C39 /* Style.css in Resources */,
+				E818BE172F2323B1005A3C39 /* Main.storyboard in Resources */,
+				E818BE342F2323B1005A3C39 /* Script.js in Resources */,
+				E818BE382F2323B1005A3C39 /* Assets.xcassets in Resources */,
+				E818BE2E2F2323B1005A3C39 /* Main.html in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E818BE1B2F2323B1005A3C39 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E818BEA82F2323B2005A3C39 /* pattern4.png in Resources */,
+				E818BEB42F2323B2005A3C39 /* pattern0.png in Resources */,
+				E818BEC02F2323B2005A3C39 /* options.css in Resources */,
+				E818BEC12F2323B2005A3C39 /* pattern-light1.png in Resources */,
+				E818BEBC2F2323B2005A3C39 /* pattern-light6.png in Resources */,
+				E818BEB52F2323B2005A3C39 /* green-tick.png in Resources */,
+				E818BEBD2F2323B2005A3C39 /* pattern-light2.png in Resources */,
+				E818BEBA2F2323B2005A3C39 /* pattern-light5.png in Resources */,
+				E818BEB72F2323B2005A3C39 /* pattern-light4.png in Resources */,
+				E818BE9C2F2323B2005A3C39 /* gear.png in Resources */,
+				E818BEA92F2323B2005A3C39 /* icon-d.png in Resources */,
+				E818BEAB2F2323B2005A3C39 /* pattern7.png in Resources */,
+				E818BEA62F2323B2005A3C39 /* icon128.png in Resources */,
+				E818BEB62F2323B2005A3C39 /* options.htm in Resources */,
+				E818BEA42F2323B2005A3C39 /* options.js in Resources */,
+				E818BEA12F2323B2005A3C39 /* popup.js in Resources */,
+				E818BEA32F2323B2005A3C39 /* icon48.png in Resources */,
+				E818BEB82F2323B2005A3C39 /* eye.svg in Resources */,
+				E818BEA22F2323B2005A3C39 /* clear.png in Resources */,
+				E818BEC22F2323B2005A3C39 /* popup.htm in Resources */,
+				E818BEAC2F2323B2005A3C39 /* css.css in Resources */,
+				E818BEB02F2323B2005A3C39 /* undo.png in Resources */,
+				E818BEA02F2323B2005A3C39 /* icon.png in Resources */,
+				E818BEB32F2323B2005A3C39 /* migrate-settings.js in Resources */,
+				E818BEBE2F2323B2005A3C39 /* service_worker.js in Resources */,
+				E818BEB22F2323B2005A3C39 /* pattern1.png in Resources */,
+				E818BEB92F2323B2005A3C39 /* popup.css in Resources */,
+				E818BE9F2F2323B2005A3C39 /* js.js in Resources */,
+				E818BEAE2F2323B2005A3C39 /* pattern2.png in Resources */,
+				E818BEAA2F2323B2005A3C39 /* pattern5.png in Resources */,
+				E818BEB12F2323B2005A3C39 /* manifest.json in Resources */,
+				E818BEC32F2323B2005A3C39 /* pattern-light0.png in Resources */,
+				E818BEA72F2323B2005A3C39 /* _metadata in Resources */,
+				E818BEAF2F2323B2005A3C39 /* pattern3.png in Resources */,
+				E818BE9E2F2323B2005A3C39 /* migrate-settings.htm in Resources */,
+				E818BE9D2F2323B2005A3C39 /* icon16.png in Resources */,
+				E818BEAD2F2323B2005A3C39 /* pattern6.png in Resources */,
+				E818BEBB2F2323B2005A3C39 /* pattern-light7.png in Resources */,
+				E818BEBF2F2323B2005A3C39 /* pattern-light3.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E818BE252F2323B1005A3C39 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E818BE802F2323B2005A3C39 /* pattern4.png in Resources */,
+				E818BE8C2F2323B2005A3C39 /* pattern0.png in Resources */,
+				E818BE982F2323B2005A3C39 /* options.css in Resources */,
+				E818BE992F2323B2005A3C39 /* pattern-light1.png in Resources */,
+				E818BE942F2323B2005A3C39 /* pattern-light6.png in Resources */,
+				E818BE8D2F2323B2005A3C39 /* green-tick.png in Resources */,
+				E818BE952F2323B2005A3C39 /* pattern-light2.png in Resources */,
+				E818BE922F2323B2005A3C39 /* pattern-light5.png in Resources */,
+				E818BE8F2F2323B2005A3C39 /* pattern-light4.png in Resources */,
+				E818BE742F2323B2005A3C39 /* gear.png in Resources */,
+				E818BE812F2323B2005A3C39 /* icon-d.png in Resources */,
+				E818BE832F2323B2005A3C39 /* pattern7.png in Resources */,
+				E818BE7E2F2323B2005A3C39 /* icon128.png in Resources */,
+				E818BE8E2F2323B2005A3C39 /* options.htm in Resources */,
+				E818BE7C2F2323B2005A3C39 /* options.js in Resources */,
+				E818BE792F2323B2005A3C39 /* popup.js in Resources */,
+				E818BE7B2F2323B2005A3C39 /* icon48.png in Resources */,
+				E818BE902F2323B2005A3C39 /* eye.svg in Resources */,
+				E818BE7A2F2323B2005A3C39 /* clear.png in Resources */,
+				E818BE9A2F2323B2005A3C39 /* popup.htm in Resources */,
+				E818BE842F2323B2005A3C39 /* css.css in Resources */,
+				E818BE882F2323B2005A3C39 /* undo.png in Resources */,
+				E818BE782F2323B2005A3C39 /* icon.png in Resources */,
+				E818BE8B2F2323B2005A3C39 /* migrate-settings.js in Resources */,
+				E818BE962F2323B2005A3C39 /* service_worker.js in Resources */,
+				E818BE8A2F2323B2005A3C39 /* pattern1.png in Resources */,
+				E818BE912F2323B2005A3C39 /* popup.css in Resources */,
+				E818BE772F2323B2005A3C39 /* js.js in Resources */,
+				E818BE862F2323B2005A3C39 /* pattern2.png in Resources */,
+				E818BE822F2323B2005A3C39 /* pattern5.png in Resources */,
+				E818BE892F2323B2005A3C39 /* manifest.json in Resources */,
+				E818BE9B2F2323B2005A3C39 /* pattern-light0.png in Resources */,
+				E818BE7F2F2323B2005A3C39 /* _metadata in Resources */,
+				E818BE872F2323B2005A3C39 /* pattern3.png in Resources */,
+				E818BE762F2323B2005A3C39 /* migrate-settings.htm in Resources */,
+				E818BE752F2323B2005A3C39 /* icon16.png in Resources */,
+				E818BE852F2323B2005A3C39 /* pattern6.png in Resources */,
+				E818BE932F2323B2005A3C39 /* pattern-light7.png in Resources */,
+				E818BE972F2323B2005A3C39 /* pattern-light3.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		E818BDFB2F2323B1005A3C39 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E818BE352F2323B1005A3C39 /* ViewController.swift in Sources */,
+				E818BE032F2323B1005A3C39 /* AppDelegate.swift in Sources */,
+				E818BE052F2323B1005A3C39 /* SceneDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E818BE0D2F2323B1005A3C39 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E818BE362F2323B1005A3C39 /* ViewController.swift in Sources */,
+				E818BE142F2323B1005A3C39 /* AppDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E818BE192F2323B1005A3C39 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E818BE392F2323B1005A3C39 /* SafariWebExtensionHandler.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E818BE232F2323B1005A3C39 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E818BE3A2F2323B1005A3C39 /* SafariWebExtensionHandler.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		E818BE202F2323B1005A3C39 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E818BE1C2F2323B1005A3C39 /* Wizmage AI Extension (iOS) */;
+			targetProxy = E818BE1F2F2323B1005A3C39 /* PBXContainerItemProxy */;
+		};
+		E818BE2A2F2323B1005A3C39 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E818BE262F2323B1005A3C39 /* Wizmage AI Extension (macOS) */;
+			targetProxy = E818BE292F2323B1005A3C39 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		E818BDF22F2323B0005A3C39 /* Main.html */ = {
+			isa = PBXVariantGroup;
+			children = (
+				E818BDF32F2323B0005A3C39 /* Base */,
+			);
+			name = Main.html;
+			sourceTree = "<group>";
+		};
+		E818BE062F2323B1005A3C39 /* LaunchScreen.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				E818BE072F2323B1005A3C39 /* Base */,
+			);
+			name = LaunchScreen.storyboard;
+			sourceTree = "<group>";
+		};
+		E818BE092F2323B1005A3C39 /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				E818BE0A2F2323B1005A3C39 /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+		E818BE152F2323B1005A3C39 /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				E818BE162F2323B1005A3C39 /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		E818BE3B2F2323B1005A3C39 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		E818BE3C2F2323B1005A3C39 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		E818BE3E2F2323B1005A3C39 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Q2DJH3DFLH;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Wizmage AI Extension";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yourCompany.Wizmage-AI.Extension";
+				PRODUCT_NAME = "Wizmage AI Extension";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		E818BE3F2F2323B1005A3C39 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Q2DJH3DFLH;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Wizmage AI Extension";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yourCompany.Wizmage-AI.Extension";
+				PRODUCT_NAME = "Wizmage AI Extension";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		E818BE422F2323B1005A3C39 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Q2DJH3DFLH;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "iOS (App)/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Wizmage AI";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+					"-framework",
+					WebKit,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yourCompany.Wizmage-AI";
+				PRODUCT_NAME = "Wizmage AI";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		E818BE432F2323B1005A3C39 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Q2DJH3DFLH;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "iOS (App)/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Wizmage AI";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+					"-framework",
+					WebKit,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yourCompany.Wizmage-AI";
+				PRODUCT_NAME = "Wizmage AI";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		E818BE452F2323B1005A3C39 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = B95CT2R48K;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "macOS (Extension)/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Wizmage AI Extension";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yourCompany.Wizmage-AI.Extension";
+				PRODUCT_NAME = "Wizmage AI Extension";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		E818BE462F2323B1005A3C39 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = B95CT2R48K;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "macOS (Extension)/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Wizmage AI Extension";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yourCompany.Wizmage-AI.Extension";
+				PRODUCT_NAME = "Wizmage AI Extension";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		E818BE492F2323B1005A3C39 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = B95CT2R48K;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "macOS (App)/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Wizmage AI";
+				INFOPLIST_KEY_NSMainStoryboardFile = Main;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+					"-framework",
+					WebKit,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yourCompany.Wizmage-AI";
+				PRODUCT_NAME = "Wizmage AI";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		E818BE4A2F2323B1005A3C39 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = B95CT2R48K;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "macOS (App)/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Wizmage AI";
+				INFOPLIST_KEY_NSMainStoryboardFile = Main;
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+					"-framework",
+					WebKit,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.yourCompany.Wizmage-AI";
+				PRODUCT_NAME = "Wizmage AI";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		E818BDEF2F2323B0005A3C39 /* Build configuration list for PBXProject "Wizmage AI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E818BE3B2F2323B1005A3C39 /* Debug */,
+				E818BE3C2F2323B1005A3C39 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E818BE3D2F2323B1005A3C39 /* Build configuration list for PBXNativeTarget "Wizmage AI Extension (iOS)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E818BE3E2F2323B1005A3C39 /* Debug */,
+				E818BE3F2F2323B1005A3C39 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E818BE412F2323B1005A3C39 /* Build configuration list for PBXNativeTarget "Wizmage AI (iOS)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E818BE422F2323B1005A3C39 /* Debug */,
+				E818BE432F2323B1005A3C39 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E818BE442F2323B1005A3C39 /* Build configuration list for PBXNativeTarget "Wizmage AI Extension (macOS)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E818BE452F2323B1005A3C39 /* Debug */,
+				E818BE462F2323B1005A3C39 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E818BE482F2323B1005A3C39 /* Build configuration list for PBXNativeTarget "Wizmage AI (macOS)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E818BE492F2323B1005A3C39 /* Debug */,
+				E818BE4A2F2323B1005A3C39 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = E818BDEC2F2323B0005A3C39 /* Project object */;
+}

@@ -1,0 +1,52 @@
+<html>
+
+<head>
+    <title>Wizmage</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900">
+    <link href="popup.css" rel="stylesheet" />
+</head>
+
+<body>
+    <div id="main">
+        <x-gear-h>
+            <img src="gear.png">
+            <x-h>Quick Settings</x-h>
+        </x-gear-h>
+        <div id="when-running">
+            <div class='item' id="show-img-w">
+                <button class="btn" id='showImages'>Show Images</button>
+            </div>
+            <div class='item chk-w'>
+                <input type='checkbox' id='excludeDomain'>
+                <label for='excludeDomain'><i-add-exclude></i-add-exclude> Website</label>
+            </div>
+            <div class='item chk-w'>
+                <input type='checkbox' id='excludeForTab'>
+                <label for='excludeForTab'><i-add-exclude></i-add-exclude> Website for this Tab</label>
+            </div>
+            <div class='item chk-w' id='exclude-always-block-w' style="display:none;">
+                <input type='checkbox' id='excludeAlwaysBlock'>
+                <label for='excludeAlwaysBlock'>Exclude Website Safe Block</label>
+            </div>
+            <div class='item chk-w'>
+                <input type='checkbox' id='pauseChk'>
+                <label for='pauseChk'>Pause</label>
+            </div>
+            <div class='item chk-w'>
+                <input type='checkbox' id='pauseTab'>
+                <label for='pauseTab'>Pause for this Tab</label>
+            </div>
+        </div>
+        <div id="err-msg"></div>
+        <div id="btns">
+            <a class="btn" id='options' href="options.htm" target="_blank">All Settings</a>
+            <button class="btn" id="close">Close</button>
+        </div>
+        <div id="about-w">
+            <a id="about" href="https://wizmage.com/ai" target="_blank">About Wizmage AI</a>
+        </div>
+    </div>
+    <script src='popup.js' type='text/javascript'></script>
+</body>
+
+</html>

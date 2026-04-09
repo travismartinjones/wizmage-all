@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Wizmage Settings</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900">
+    <link rel="stylesheet" href="options.css">
+</head>
+
+<body>
+    <div id="ios-nav">
+        <div id="ios-nav-title">Wizmage</div>
+        <button type="button" id="ios-done">Done</button>
+    </div>
+    <div id="ios-close-hint">Use the browser back button to leave settings.</div>
+    <div id='cont'>
+        <h1>Wizmage Settings</h1>
+        <f-section>
+            <x-t>
+                <b>Personal Info</b>
+                <x-info>Confirm your phone number</x-info>
+            </x-t>
+            <x-c id="phone-w">
+                <x-lbl>Phone number</x-lbl>
+                <f-row id="phone-t-t-w"><span id="phone-t-t"></span></f-row>
+                <f-row id="phone-t-set-w"><button type="button" id="phone-t-set"></button></f-row>
+            </x-c>
+        </f-section>
+        <f-section>
+            <x-t>
+                <b>Filter Setup</b>
+                <x-info>Configure the settings for your filter</x-info>
+            </x-t>
+            <x-c>
+                <x-lbl>Block any images that contains:</x-lbl>
+                <f-row id="unwanted-w">
+                    <select id="unwanted-opt">
+                        <option value=""></option>
+                        <option value="cust">(custom)</option>
+                    </select>
+                    <input id="unwanted-cust" maxlength="40" />
+                </f-row>
+                <f-row id="no-eye-w">
+                    <input type="checkbox" id="noEye" />
+                    <label for="noEye">Don't show the Eye in hidden images</label>
+                    <span id="noEyeInfo" class="info-icon"
+                        title="By default, an eye is shown when hovering the mouse over a hidden image. Clicking on it will show that image.">?</span>
+                </f-row>
+                <f-row id="always-block-w">
+                    <input type="checkbox" id="always-block" />
+                    <label for="always-block">Always block (even if safe)</label>
+                    <span class="info-icon"
+                        title="Keeps all images blocked; safe images show a green pattern.">?</span>
+                </f-row>
+                <x-lbl>
+                    Maximum Safe pixels
+                    <span class="info-icon"
+                        title="The maximum size of images that you always want shown. Must be 1-1000.">?</span>
+                </x-lbl>
+                <f-row id="max-safe-w">
+                    <input type="text" id="max-safe" />
+                </f-row>
+                <f-row id="close-on-click-w">
+                    <input type="checkbox" id="close-on-click" />
+                    <label for="close-on-click">Close menu on click</label>
+                    <span class="info-icon" title="Closes the popup menu, whenever an option is clicked.">?</span>
+                </f-row>
+            </x-c>
+        </f-section>
+        <f-section>
+            <x-t>
+                <b>Whitelist / Blacklist</b>
+                <x-info>Whitelist or Blacklist select sites</x-info>
+            </x-t>
+            <x-c id="exclusions">
+                <f-row id="w-b-list-w">
+                    <select id="w-b-list">
+                        <option value="W">Whitelist Sites</option>
+                        <option value="B">Blacklist Sites</option>
+                    </select>
+                    <span class="info-icon"
+                        title="With a Whitelist, Wizmage runs on all sites, besides for those in the list below. With a Blacklist, Wizmage only runs on the sites in the list below.">?</span>
+                </f-row>
+                <form id="form">
+                    <input type='text' id='addName'>
+                    <input type='submit' value='Add Exclusion' id='addBut'>
+                </form>
+                <x-info>a URL containing this text will be matched</x-info>
+                <x-lbl id="excluded-lbl">Exclusions</x-lbl>
+                <div id='list'></div>
+                <f-row id="free-text-w">
+                    <input type="checkbox" id="free-text" />
+                    <label for="free-text">Free Text</label>
+                </f-row>
+            </x-c>
+        </f-section>
+        <f-section id="always-block-exclusions-section" style="display:none;">
+            <x-t>
+                <b>Always Block Exceptions</b>
+                <x-info>Sites unblocked for Always Block</x-info>
+            </x-t>
+            <x-c id="always-block-exclusions">
+                <x-lbl>Allow safe images on these sites</x-lbl>
+                <form id="allow-safe-form">
+                    <input type='text' id='allow-safe-add'>
+                    <input type='submit' value='Add Site' id='allow-safe-add-but'>
+                </form>
+                <x-info>a URL containing this text will be matched</x-info>
+                <x-lbl id="allow-safe-lbl">Allowed Sites</x-lbl>
+                <div id='allow-safe-list'></div>
+            </x-c>
+        </f-section>
+    </div>
+    <script src='options.js'></script>
+</body>
+
+</html>

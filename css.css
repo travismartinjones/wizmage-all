@@ -1,0 +1,47 @@
+:root:not(.wizmage-show-html) { opacity: 0 !important; background: white !important; }
+
+:root.wizmage-running > body { background-image: none !important; }
+
+.wizmage-hide { opacity: 0 !important; }
+
+.wizmage-no-bg { background-image: none !important; }
+
+.wizmage-pattern-bg-img.wizmage-cls { background-repeat: repeat !important; text-indent: 0 !important; }
+.wizmage-cls { -webkit-touch-callout: none !important; -webkit-user-select: none !important; user-select: none !important; }
+
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-0 { background-image: url(pattern0.png) !important; }
+
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-0 { background-image: url(pattern-light0.png) !important; }
+
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-1 { background-image: url(pattern1.png) !important; }
+
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-1 { background-image: url(pattern-light1.png) !important; }
+
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-2 { background-image: url(pattern2.png) !important; }
+
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-2 { background-image: url(pattern-light2.png) !important; }
+
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-3 { background-image: url(pattern3.png) !important; }
+
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-3 { background-image: url(pattern-light3.png) !important; }
+
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-4 { background-image: url(pattern4.png) !important; }
+
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-4 { background-image: url(pattern-light4.png) !important; }
+
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-5 { background-image: url(pattern5.png) !important; }
+
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-5 { background-image: url(pattern-light5.png) !important; }
+
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-6 { background-image: url(pattern6.png) !important; }
+
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-6 { background-image: url(pattern-light6.png) !important; }
+
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-7 { background-image: url(pattern7.png) !important; }
+
+    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-7 { background-image: url(pattern-light7.png) !important; }
+
+.wizmage-pattern-bg-img.wizmage-cls.wizmage-always { background-image: url(pattern-light0.png) !important; }
+.wizmage-pattern-bg-img.wizmage-cls.wizmage-always.wizmage-light { background-image: url(pattern-light0.png) !important; }
+
+html.wizmage-running div:before, html.wizmage-running div:after { background-image: none !important; }
