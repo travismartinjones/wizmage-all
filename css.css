@@ -43,5 +43,7 @@
 
 .wizmage-pattern-bg-img.wizmage-cls.wizmage-always { background-image: var(--wzm-pattern-light-0, url(pattern-light0.png)) !important; }
 .wizmage-pattern-bg-img.wizmage-cls.wizmage-always.wizmage-light { background-image: var(--wzm-pattern-light-0, url(pattern-light0.png)) !important; }
+.wizmage-pattern-bg-img.wizmage-cls.wizmage-checking { background-image: var(--wzm-pattern-light-2, url(pattern-light2.png)) !important; }
+.wizmage-pattern-bg-img.wizmage-cls.wizmage-checking.wizmage-light { background-image: var(--wzm-pattern-light-2, url(pattern-light2.png)) !important; }
 
 html.wizmage-running div:before, html.wizmage-running div:after { background-image: none !important; }

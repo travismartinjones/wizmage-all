@@ -94,6 +94,18 @@ function storageSet(area, items) {
     }
     return new Promise(resolve => area.set(items, resolve));
 }
+function addUnique(list, value) {
+    if (value && list.indexOf(value) === -1)
+        list.push(value);
+}
+function removeMatches(list, predicate) {
+    for (let i = 0; i < list.length; i++) {
+        if (predicate(list[i])) {
+            list.splice(i, 1);
+            i--;
+        }
+    }
+}
 
 chrome.runtime.onInstalled.addListener(
     async function () {
@@ -119,7 +131,27 @@ let ws_g, settings;
 
 chrome.runtime.onMessage.addListener(
     function (request, sender, sendResponse) {
-        const shouldRespond = !!request && typeof request.r === 'string' && (request.r.startsWith('get') || request.r === 'wzmPing');
+        const responseMessages = [
+            'wzmPing',
+            'getUrlList',
+            'getSettings',
+            'getAnalyzeResponse',
+            'urlListAdd',
+            'urlListRemove',
+            'setUrlList',
+            'pause',
+            'pauseForTab',
+            'excludeForTab',
+            'allowSafeForDomain',
+            'setNoEye',
+            'setBlackList',
+            'setMaxSafe',
+            'setCloseOnClick',
+            'setAlwaysBlock',
+            'setUnwanted',
+            'setToken'
+        ];
+        const shouldRespond = !!request && typeof request.r === 'string' && responseMessages.indexOf(request.r) !== -1;
         Promise.resolve(handle()).catch(() => {
             if (shouldRespond) {
                 try { sendResponse(0); } catch (err) { /* ignore */ }
@@ -142,14 +174,14 @@ chrome.runtime.onMessage.addListener(
                 }
                 case 'getUrlList': {
                     let { urlList } = await storageGet(storageLocal, 'urlList');
-                    if (!urlList) urlList = [];
+                    if (!Array.isArray(urlList)) urlList = [];
                     sendResponse(urlList);
                     break;
                 }
                 case 'getSettings': {
                     let { urlList, settings, allowSafeDomains } = await storageGet(storageLocal, ['urlList', 'settings', 'allowSafeDomains']);
-                    if (!urlList) urlList = [];
-                    if (!allowSafeDomains) allowSafeDomains = [];
+                    if (!Array.isArray(urlList)) urlList = [];
+                    if (!Array.isArray(allowSafeDomains)) allowSafeDomains = [];
                     if (!settings) {
                         settings = {
                             paused: false,
@@ -166,6 +198,8 @@ chrome.runtime.onMessage.addListener(
                         storageSet(storageLocal, { settings });
                     }
                     let { pauseForTabs, excludeForTabs } = await storageGet(storageSession, { pauseForTabs: [], excludeForTabs: [] });
+                    if (!Array.isArray(pauseForTabs)) pauseForTabs = [];
+                    if (!Array.isArray(excludeForTabs)) excludeForTabs = [];
                     let _settings = Object.assign({}, settings);
                     recordSwLog('getSettings', { tabId: (request.tab || (sender && sender.tab) || {}).id || null });
                     let tab = request.tab || sender.tab;
@@ -180,12 +214,14 @@ chrome.runtime.onMessage.addListener(
                                     if (entry && entry.tabId == tab.id && entry.domain == domain) { _settings.excludedForTab = true; break; }
                                 }
                                 for (let i = 0; i < allowSafeDomains.length; i++) {
-                                    if (domain.indexOf(allowSafeDomains[i]) !== -1) { _settings.allowSafeDomain = true; break; }
+                                    let entry = (allowSafeDomains[i] || '').toLowerCase();
+                                    if (entry && domain.indexOf(entry) !== -1) { _settings.allowSafeDomain = true; break; }
                                 }
                             }
                             let lowerUrl = tab.url.toLowerCase();
                             for (let i = 0; i < urlList.length; i++) {
-                                if (lowerUrl.indexOf(urlList[i]) != -1) { _settings.excluded = true; break; }
+                                let entry = (urlList[i] || '').toLowerCase();
+                                if (entry && lowerUrl.indexOf(entry) != -1) { _settings.excluded = true; break; }
                             }
                         }
                     }
@@ -202,93 +238,113 @@ chrome.runtime.onMessage.addListener(
                     break;
                 case 'urlListAdd': {
                     let { urlList } = await storageGet(storageLocal, 'urlList');
-                    if (!urlList) urlList = [];
-                    let url = request.domainOnly ? getDomain(request.url) : request.url.toLowerCase();
+                    if (!Array.isArray(urlList)) urlList = [];
+                    let url = request.domainOnly ? getDomain(request.url) : (request.url || '').toLowerCase();
                     if (url) {
-                        urlList.push(url);
-                        storageSet(storageLocal, { urlList });
-                        chrome.runtime.sendMessage({ r: 'urlListModified' });
+                        addUnique(urlList, url);
+                        await storageSet(storageLocal, { urlList });
+                        try { chrome.runtime.sendMessage({ r: 'urlListModified' }); } catch (err) { /* ignore */ }
                     }
+                    sendResponse({ ok: true });
                     break;
                 }
                 case 'urlListRemove': {
                     let { urlList } = await storageGet(storageLocal, 'urlList');
-                    if (!urlList) urlList = [];
+                    if (!Array.isArray(urlList)) urlList = [];
                     if (request.url) {
                         let lowerUrl = request.url.toLowerCase();
-                        for (let i = 0; i < urlList.length; i++) {
-                            if (lowerUrl.indexOf(urlList[i]) != -1) { urlList.splice(i, 1); i--; }
-                        }
+                        removeMatches(urlList, entry => lowerUrl.indexOf((entry || '').toLowerCase()) != -1);
                     } else
                         urlList.splice(request.index, 1);
-                    storageSet(storageLocal, { urlList });
-                    chrome.runtime.sendMessage({ r: 'urlListModified' });
+                    await storageSet(storageLocal, { urlList });
+                    try { chrome.runtime.sendMessage({ r: 'urlListModified' }); } catch (err) { /* ignore */ }
+                    sendResponse({ ok: true });
                     break;
                 }
                 case 'setUrlList': {
                     let urlList = request.urlList;
-                    storageSet(storageLocal, { urlList });
+                    await storageSet(storageLocal, { urlList });
+                    sendResponse({ ok: true });
                     break;
                 }
                 case 'pause': {
                     await getSettings();
-                    settings.paused = request.toggle;
-                    storageSet(storageLocal, { settings });
+                    settings.paused = !!request.toggle;
+                    await storageSet(storageLocal, { settings });
+                    sendResponse({ ok: true });
                     break;
                 }
                 case 'pauseForTab': {
                     let { pauseForTabs } = await storageGet(storageSession, { pauseForTabs: [] });
+                    if (!Array.isArray(pauseForTabs)) pauseForTabs = [];
                     if (request.toggle)
-                        pauseForTabs.push(request.tabId);
+                        addUnique(pauseForTabs, request.tabId);
                     else
-                        for (let i = 0; i < pauseForTabs.length; i++)
-                            if (pauseForTabs[i] == request.tabId) { pauseForTabs.splice(i, 1); break; }
-                    storageSet(storageSession, { pauseForTabs });
+                        removeMatches(pauseForTabs, entry => entry == request.tabId);
+                    await storageSet(storageSession, { pauseForTabs });
+                    sendResponse({ ok: true });
                     break;
                 }
                 case 'excludeForTab': {
                     let { excludeForTabs } = await storageGet(storageSession, { excludeForTabs: [] });
-                    let domain = getDomain(request.tab.url);
-                    if (!domain) return;
+                    if (!Array.isArray(excludeForTabs)) excludeForTabs = [];
+                    let tab = request.tab || {};
+                    let domain = getDomain(tab.url);
+                    if (!domain || tab.id == null) {
+                        sendResponse({ ok: false });
+                        return;
+                    }
                     if (request.toggle) {
-                        excludeForTabs.push({ tabId: request.tab.id, domain: domain });
+                        let exists = false;
+                        for (let i = 0; i < excludeForTabs.length; i++) {
+                            let entry = excludeForTabs[i];
+                            if (entry && entry.tabId == tab.id && entry.domain == domain) {
+                                exists = true;
+                                break;
+                            }
+                        }
+                        if (!exists)
+                            excludeForTabs.push({ tabId: tab.id, domain: domain });
                     }
                     else {
-                        for (let i = 0; i < excludeForTabs.length; i++)
-                            if (excludeForTabs[i].tabId == request.tab.id && excludeForTabs[i].domain == domain) { excludeForTabs.splice(i, 1); break; }
+                        removeMatches(excludeForTabs, entry => entry && entry.tabId == tab.id && entry.domain == domain);
                     }
-                    storageSet(storageSession, { excludeForTabs });
+                    await storageSet(storageSession, { excludeForTabs });
+                    sendResponse({ ok: true });
                     break;
                 }
                 case 'allowSafeForDomain': {
                     let { allowSafeDomains } = await storageGet(storageLocal, { allowSafeDomains: [] });
+                    if (!Array.isArray(allowSafeDomains)) allowSafeDomains = [];
                     let domain = request.domain;
                     if (!domain && request.url)
                         domain = getDomain(request.url);
-                    if (!domain)
+                    if (!domain) {
+                        sendResponse({ ok: false });
                         break;
+                    }
                     if (request.toggle) {
-                        if (allowSafeDomains.indexOf(domain) === -1)
-                            allowSafeDomains.push(domain);
+                        addUnique(allowSafeDomains, domain);
                     }
                     else {
-                        for (let i = 0; i < allowSafeDomains.length; i++) {
-                            if (domain.indexOf(allowSafeDomains[i]) !== -1) { allowSafeDomains.splice(i, 1); i--; }
-                        }
+                        removeMatches(allowSafeDomains, entry => domain.indexOf((entry || '').toLowerCase()) !== -1);
                     }
-                    storageSet(storageLocal, { allowSafeDomains });
+                    await storageSet(storageLocal, { allowSafeDomains });
+                    sendResponse({ ok: true });
                     break;
                 }
                 case 'setNoEye': {
                     await getSettings();
-                    settings.noEye = request.toggle;
-                    storageSet(storageLocal, { settings });
+                    settings.noEye = !!request.toggle;
+                    await storageSet(storageLocal, { settings });
+                    sendResponse({ ok: true });
                     break;
                 }
                 case 'setBlackList': {
                     await getSettings();
-                    settings.blackList = request.toggle;
-                    storageSet(storageLocal, { settings });
+                    settings.blackList = !!request.toggle;
+                    await storageSet(storageLocal, { settings });
+                    sendResponse({ ok: true });
                     break;
                 }
                 case 'setMaxSafe': {
@@ -297,32 +353,37 @@ chrome.runtime.onMessage.addListener(
                         ms = 32;
                     await getSettings();
                     settings.maxSafe = ms;
-                    storageSet(storageLocal, { settings });
+                    await storageSet(storageLocal, { settings });
+                    sendResponse({ ok: true });
                     break;
                 }
                 case 'setCloseOnClick': {
                     await getSettings();
-                    settings.closeOnClick = request.toggle;
-                    storageSet(storageLocal, { settings });
+                    settings.closeOnClick = !!request.toggle;
+                    await storageSet(storageLocal, { settings });
+                    sendResponse({ ok: true });
                     break;
                 }
                 case 'setAlwaysBlock': {
                     await getSettings();
-                    settings.alwaysBlock = request.toggle;
-                    storageSet(storageLocal, { settings });
+                    settings.alwaysBlock = !!request.toggle;
+                    await storageSet(storageLocal, { settings });
+                    sendResponse({ ok: true });
                     break;
                 }
                 case 'setUnwanted': {
                     await getSettings();
                     settings.unwanted = request.unwanted;
-                    storageSet(storageLocal, { settings });
+                    await storageSet(storageLocal, { settings });
+                    sendResponse({ ok: true });
                     break;
                 }
                 case 'setToken':
                     await getSettings();
                     settings.token = request.token;
                     settings.phone = request.phone;
-                    storageSet(storageLocal, { settings });
+                    await storageSet(storageLocal, { settings });
+                    sendResponse({ ok: true });
                     break;
                 case 'getAnalyzeResponse': {
                     if (!request.imgUrl) {

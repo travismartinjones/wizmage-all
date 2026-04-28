@@ -38,13 +38,13 @@ function wzmAddRuntimeListener(listener) {
 function wzmGetURL(path) {
     return (wzmRuntime && wzmRuntime.getURL) ? wzmRuntime.getURL(path) : path;
 }
-function wzmStorageGetLocal(keys, callback) {
-    if (!wzmStorageLocal || !wzmStorageLocal.get) {
+function wzmStorageGet(area, keys, callback) {
+    if (!area || !area.get) {
         if (callback) callback({});
         return;
     }
     try {
-        var maybePromise = wzmStorageLocal.get(keys);
+        var maybePromise = area.get(keys);
         if (maybePromise && typeof maybePromise.then === 'function') {
             if (callback) maybePromise.then(callback).catch(function () { callback({}); });
             return maybePromise;
@@ -53,10 +53,13 @@ function wzmStorageGetLocal(keys, callback) {
         // fall through
     }
     try {
-        return wzmStorageLocal.get(keys, callback);
+        return area.get(keys, callback);
     } catch (err) {
         if (callback) callback({});
     }
+}
+function wzmStorageGetLocal(keys, callback) {
+    return wzmStorageGet(wzmStorageLocal, keys, callback);
 }
 function wzmStorageSetLocal(items) {
     if (!wzmStorageLocal || !wzmStorageLocal.set)
@@ -262,13 +265,8 @@ let settingsFallback = setTimeout(function () {
     if (!settingsResolved && document.documentElement)
         AddClass(document.documentElement, 'wizmage-show-html');
 }, 1500);
-function applySettingsAndStart(s) {
-    if (settingsApplied)
-        return;
-    settingsApplied = true;
-    settingsResolved = true;
-    clearTimeout(settingsFallback);
-    settings = s || {
+function wzmDefaultSettings() {
+    return {
         paused: false,
         noEye: false,
         blackList: false,
@@ -276,6 +274,51 @@ function applySettingsAndStart(s) {
         maxSafe: 32,
         alwaysBlock: false
     };
+}
+function wzmLocalDomain() {
+    return (typeof location !== 'undefined' && location.host) ? location.host.toLowerCase() : '';
+}
+function wzmUrlMatchesList(url, list) {
+    let lowerUrl = (url || '').toLowerCase();
+    for (let i = 0; i < list.length; i++) {
+        let entry = (list[i] || '').toLowerCase();
+        if (entry && lowerUrl.indexOf(entry) != -1)
+            return true;
+    }
+    return false;
+}
+function wzmDomainMatchesList(domain, list) {
+    domain = (domain || '').toLowerCase();
+    for (let i = 0; i < list.length; i++) {
+        let entry = (list[i] || '').toLowerCase();
+        if (entry && domain.indexOf(entry) !== -1)
+            return true;
+    }
+    return false;
+}
+function wzmGetEffectiveSettingsFromStorage(callback) {
+    wzmStorageGetLocal(['settings', 'urlList', 'allowSafeDomains'], function (data) {
+        let s = data && data.settings && typeof data.settings === 'object'
+            ? Object.assign(wzmDefaultSettings(), data.settings)
+            : wzmDefaultSettings();
+        let urlList = (data && Array.isArray(data.urlList)) ? data.urlList : [];
+        let allowSafeDomains = (data && Array.isArray(data.allowSafeDomains)) ? data.allowSafeDomains : [];
+        let domain = wzmLocalDomain();
+        s.excluded = wzmUrlMatchesList(location.href, urlList);
+        s.allowSafeDomain = wzmDomainMatchesList(domain, allowSafeDomains);
+        s.pausedForTab = false;
+        s.excludedForTab = false;
+        if (callback)
+            callback(s);
+    });
+}
+function applySettingsAndStart(s) {
+    if (settingsApplied)
+        return;
+    settingsApplied = true;
+    settingsResolved = true;
+    clearTimeout(settingsFallback);
+    settings = s || wzmDefaultSettings();
     if (settings.alwaysBlock == null)
         settings.alwaysBlock = false;
     //if is active - go
@@ -316,22 +359,7 @@ function applySettingsAndStart(s) {
     }
 }
 function loadSettingsFromStorage() {
-    wzmStorageGetLocal(['settings', 'allowSafeDomains'], function (data) {
-        let s = data && data.settings ? data.settings : null;
-        if (s && typeof s === 'object' && !s.allowSafeDomain) {
-            let allowSafeDomains = (data && Array.isArray(data.allowSafeDomains)) ? data.allowSafeDomains : [];
-            let host = (typeof location !== 'undefined' && location.host) ? location.host.toLowerCase() : '';
-            if (host && allowSafeDomains.length) {
-                for (let i = 0; i < allowSafeDomains.length; i++) {
-                    if (host.indexOf(allowSafeDomains[i]) !== -1) {
-                        s.allowSafeDomain = true;
-                        break;
-                    }
-                }
-            }
-        }
-        applySettingsAndStart(s);
-    });
+    wzmGetEffectiveSettingsFromStorage(applySettingsAndStart);
 }
 if (!wzmRuntime || !wzmRuntime.sendMessage || wzmIsSafari) {
     loadSettingsFromStorage();
@@ -387,7 +415,10 @@ function ShowImages() {
     showAll = true;
     if (window == top)
         wzmSendMessage({ r: 'setColorIcon', toggle: false });
-    window.wzmShowImages();
+    if (window.wzmShowImages)
+        window.wzmShowImages();
+    else if (document.documentElement)
+        AddClass(document.documentElement, 'wizmage-show-html');
     for (let i = 0, max = iframes.length; i < max; i++) {
         let iframe = iframes[i];
         try {
@@ -423,38 +454,28 @@ function RefreshSettings(callback) {
             if (callback) callback(false);
             return;
         }
+        let updated = false;
         settings = s;
         if (settings.alwaysBlock == null)
             settings.alwaysBlock = false;
-        if (window.wzmUpdateSettings)
+        if (window.wzmUpdateSettings) {
             window.wzmUpdateSettings(settings);
+            updated = true;
+        }
         for (let i = 0, max = iframes.length; i < max; i++) {
             let iframe = iframes[i];
             try {
-                if (iframe.contentWindow && iframe.contentWindow.wzmUpdateSettings)
+                if (iframe.contentWindow && iframe.contentWindow.wzmUpdateSettings) {
                     iframe.contentWindow.wzmUpdateSettings(settings);
+                    updated = true;
+                }
             }
             catch (err) { /*iframe may have been rewritten*/ }
         }
-        if (callback) callback(true);
+        if (callback) callback(updated);
     };
     if (!wzmRuntime || !wzmRuntime.sendMessage || wzmIsSafari) {
-        wzmStorageGetLocal(['settings', 'allowSafeDomains'], function (data) {
-            let s = data && data.settings ? data.settings : null;
-            if (s && typeof s === 'object' && !s.allowSafeDomain) {
-                let allowSafeDomains = (data && Array.isArray(data.allowSafeDomains)) ? data.allowSafeDomains : [];
-                let host = (typeof location !== 'undefined' && location.host) ? location.host.toLowerCase() : '';
-                if (host && allowSafeDomains.length) {
-                    for (let i = 0; i < allowSafeDomains.length; i++) {
-                        if (host.indexOf(allowSafeDomains[i]) !== -1) {
-                            s.allowSafeDomain = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            applySettings(s || {});
-        });
+        wzmGetEffectiveSettingsFromStorage(applySettings);
         return;
     }
     wzmSendMessage({ r: 'getSettings' }, function (s) {
@@ -510,6 +531,7 @@ function DoWin(win, winContentLoaded) {
             if (!el)
                 continue;
             el.wzmAllowSrc = null;
+            el.wzmChecking = false;
             el.wzmTapState = 0;
             el.wzmLastShownAt = 0;
             el.wzmConsumeClickUntil = 0;
@@ -831,6 +853,7 @@ function DoWin(win, winContentLoaded) {
                 if (srcForCheck && srcForCheck !== blankImg && el.wzmLastCheckedSrc !== srcForCheck) {
                     el.wzmLastCheckedSrc = srcForCheck;
                     el.wzmBad = false;
+                    el.wzmChecking = false;
                     el.wzmUnchecked = true;
                     el.wzmAlwaysBlock = false;
                 }
@@ -878,6 +901,7 @@ function DoWin(win, winContentLoaded) {
                 imgUrl = bgimg;
                 if (el.wzmLastCheckedSrc != bgimg) {
                     el.wzmBad = false;
+                    el.wzmChecking = false;
                     el.wzmUnchecked = true;
                     el.wzmAlwaysBlock = false;
                     el.wzmLastCheckedSrc = bgimg;
@@ -901,9 +925,11 @@ function DoWin(win, winContentLoaded) {
             if (m)
                 imgUrl = m[1];
             if (imgUrl.startsWith('http') || imgUrl.startsWith('data:')) {
+                SetChecking(el, true);
                 wzmAnalyzeImage(imgUrl, (r) => {
                     if (isImg(el) && el.src != blankImg && el.src != imgUrl)
                         return;
+                    el.wzmChecking = false;
                     if (r == '1') {
                         DoWizmageBG(el, false);
                         el.wzmBad = true;
@@ -959,9 +985,11 @@ function DoWin(win, winContentLoaded) {
     }
     function DoWizmageBG(el, toggle) {
         if (toggle && !el.wzmHasWizmageBG) {
-            let shade = el.wzmBad ? 5 : (el.wzmUnchecked ? 1 : 7);
+            let shade = el.wzmBad ? 5 : (el.wzmChecking ? 2 : (el.wzmUnchecked ? 1 : 7));
             el.wzmShade = shade;
             AddClass(el, 'wizmage-pattern-bg-img wizmage-cls wizmage-shade-' + shade);
+            if (el.wzmChecking)
+                AddClass(el, 'wizmage-checking');
             if (el.wzmAlwaysBlock)
                 AddClass(el, 'wizmage-always');
             el.wzmTapState = 0;
@@ -973,8 +1001,18 @@ function DoWin(win, winContentLoaded) {
             RemoveClass(el, 'wizmage-cls');
             RemoveClass(el, 'wizmage-shade-' + el.wzmShade);
             RemoveClass(el, 'wizmage-always');
+            RemoveClass(el, 'wizmage-checking');
             el.wzmHasWizmageBG = false;
             MarkWizmaged(el, false);
+        }
+    }
+    function SetChecking(el, toggle) {
+        if (el.wzmChecking === toggle)
+            return;
+        el.wzmChecking = toggle;
+        if (el.wzmHasWizmageBG) {
+            DoWizmageBG(el, false);
+            DoWizmageBG(el, true);
         }
     }
     //for IMG,SOURCE
@@ -1448,6 +1486,7 @@ function DoWin(win, winContentLoaded) {
             RemoveClass(el, 'wizmage-light');
         }
         el.wzmAlwaysBlock = false;
+        el.wzmChecking = false;
         el.wzmUnchecked = false;
         if (el.wzmCheckTimeout) {
             clearTimeout(el.wzmCheckTimeout);
