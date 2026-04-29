@@ -1276,7 +1276,7 @@ function DoWin(win, winContentLoaded) {
                         DoHoverVisualClearTimer(el, true);
                         eye.onclick = function (e) {
                             e.stopPropagation();
-                            DoElement.call(el);
+                            RehideEl(el);
                             setupEye();
                             DoHoverVisualClearTimer(el, true);
                         };
