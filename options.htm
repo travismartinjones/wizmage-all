@@ -1,13 +1,354 @@
 <!DOCTYPE html>
 <html>
-
 <head>
-    <title>Wizmage Settings</title>
+    <title>Wizmage Options</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900">
-    <link rel="stylesheet" href="options.css">
-</head>
+    <style>
+        :root {
+            --brand: #4f46e5;
+            --brand-strong: #3730a3;
+            --brand-soft: #eef2ff;
+            --text: #111827;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+            --card: #ffffff;
+            --page: #0f172a;
+            --danger: #dc2626;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; min-height: 100vh;
+            padding: 40px 20px;
+            background: radial-gradient(1200px 800px at 80% -10%, #1e1b4b 0%, transparent 60%),
+                        radial-gradient(1000px 700px at -10% 110%, #5b21b6 0%, transparent 55%),
+                        var(--page);
+            font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            color: var(--text);
+        }
+        #cont {
+            max-width: 640px; margin: 0 auto;
+            background: var(--card);
+            padding: 28px 32px 32px;
+            border-radius: 18px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, .35), 0 2px 8px rgba(0, 0, 0, .18);
+        }
 
+        h3 {
+            margin: 24px 0 12px;
+            font-size: 15px; font-weight: 600; letter-spacing: .3px;
+            color: var(--text);
+            text-transform: uppercase;
+        }
+            #cont > h3:first-of-type { margin-top: 0; }
+            h3 > * { vertical-align: middle; margin: 0; }
+
+        input[type=text] {
+            padding: 7px 10px;
+            border: 1px solid var(--border); border-radius: 8px;
+            font: inherit; color: inherit; background: #fff;
+            outline: none; transition: border-color .15s, box-shadow .15s;
+        }
+            input[type=text]:focus {
+                border-color: var(--brand);
+                box-shadow: 0 0 0 3px rgba(79, 70, 229, .15);
+            }
+        input[type=submit], button {
+            padding: 8px 14px; border: 0; border-radius: 8px;
+            background: var(--brand); color: #fff;
+            font: 600 13px/1 system-ui, sans-serif; letter-spacing: .2px;
+            cursor: pointer; transition: background-color .15s, transform .05s;
+        }
+            input[type=submit]:hover, button:hover { background: var(--brand-strong); }
+            input[type=submit]:active, button:active { transform: translateY(1px); }
+
+        input[type=checkbox] {
+            appearance: none; -webkit-appearance: none;
+            width: 16px; height: 16px; margin: 0 8px 0 0;
+            border: 1.5px solid #d1d5db; border-radius: 4px;
+            background: #fff; cursor: pointer; vertical-align: middle;
+            transition: all .15s;
+        }
+            input[type=checkbox]:hover { border-color: #9ca3af; }
+            input[type=checkbox]:checked {
+                background: var(--brand); border-color: var(--brand);
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='white'%3E%3Cpath d='M6.173 11.793L2.88 8.5l1.414-1.414 1.88 1.879 5.293-5.293L13.12 5.086z'/%3E%3C/svg%3E");
+                background-size: 12px 12px; background-position: center; background-repeat: no-repeat;
+            }
+
+        input[type=radio] {
+            appearance: none; -webkit-appearance: none;
+            width: 16px; height: 16px; margin: 0 8px 0 0;
+            border: 1.5px solid #d1d5db; border-radius: 50%;
+            background: #fff; cursor: pointer; vertical-align: middle;
+            transition: all .15s;
+            position: relative;
+        }
+            input[type=radio]:hover { border-color: #9ca3af; }
+            input[type=radio]:checked {
+                border-color: var(--brand); border-width: 5px;
+            }
+
+        label { cursor: pointer; vertical-align: middle; }
+        label:hover { color: var(--brand); }
+        .item-row { margin-top: 10px; display: flex; align-items: center; }
+        .item-row:first-child { margin-top: 0; }
+
+        .radio-group {
+            display: flex; flex-wrap: wrap; gap: 8px;
+        }
+        .radio-pill {
+            display: inline-flex; align-items: center;
+            padding: 7px 14px;
+            border: 1px solid var(--border); border-radius: 999px;
+            background: #fff; cursor: pointer;
+            font-size: 13px; font-weight: 500;
+            transition: all .15s;
+        }
+            .radio-pill:hover { border-color: var(--brand); color: var(--brand); }
+            .radio-pill input[type=radio] {
+                margin-right: 7px;
+                width: 14px; height: 14px;
+            }
+            .radio-pill:has(input:checked) {
+                background: var(--brand-soft);
+                border-color: var(--brand);
+                color: var(--brand-strong);
+            }
+
+        .info-icon {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 18px; height: 18px; margin-left: 6px;
+            background: #f3f4f6; color: var(--muted);
+            border-radius: 50%; font-size: 11px; font-weight: 700;
+            cursor: help; vertical-align: middle;
+            transition: all .15s;
+        }
+            .info-icon:hover { background: var(--brand); color: #fff; }
+
+        #addName, #allow-safe-add { width: 100%; max-width: 420px; margin-right: 8px; }
+        #form, #allow-safe-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+        #list, #allow-safe-list {
+            margin: 10px 0;
+            border: 1px solid var(--border); border-radius: 10px;
+            padding: 8px;
+            max-height: 280px; overflow-y: auto;
+            background: #fafafa;
+        }
+        #list textarea {
+            width: 100%; min-height: 280px; padding: 8px;
+            border: 1px solid var(--border); border-radius: 8px;
+            font: 13px/1.5 "SFMono-Regular", Consolas, monospace;
+            resize: vertical;
+        }
+        .item {
+            display: flex; align-items: center; padding: 4px 6px;
+            border-radius: 6px; transition: background-color .1s;
+        }
+            .item:hover { background: #fff; }
+        .item .delete {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 20px; height: 20px; margin-right: 8px;
+            border-radius: 6px; border: 0;
+            background: transparent; color: var(--muted); cursor: pointer;
+            font-size: 11px; font-weight: 700;
+            transition: all .15s;
+        }
+            .item .delete:hover { background: #fee2e2; color: var(--danger); }
+        .item .url { color: var(--text); font-family: "SFMono-Regular", Consolas, monospace; font-size: 12.5px; word-break: break-all; }
+        #list ~ div > i, #allow-safe-list ~ div > i { font-size: 12px; color: var(--muted); }
+
+        #ai-promo {
+            display: flex; align-items: center; gap: 18px;
+            padding: 20px 24px; margin-bottom: 24px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #ec4899 100%);
+            color: #fff;
+            box-shadow: 0 6px 22px rgba(124, 58, 237, .35), inset 0 1px 0 rgba(255, 255, 255, .22);
+            position: relative; overflow: hidden;
+        }
+            #ai-promo::before {
+                content: ''; position: absolute; inset: 0;
+                background: radial-gradient(circle at 18% 10%, rgba(255, 255, 255, .18), transparent 55%),
+                            radial-gradient(circle at 92% 88%, rgba(255, 255, 255, .10), transparent 50%);
+                pointer-events: none;
+            }
+            #ai-promo .ai-icon {
+                font-size: 46px; line-height: 1;
+                filter: drop-shadow(0 0 10px rgba(255, 255, 255, .75));
+                animation: ai-spark 2.8s ease-in-out infinite;
+            }
+            #ai-promo .ai-body { flex: 1; position: relative; }
+            #ai-promo h3 {
+                margin: 0 0 6px 0; color: #fff;
+                font-size: 20px; font-weight: 700; letter-spacing: .2px;
+                text-transform: none;
+                display: flex; align-items: center; gap: 10px;
+            }
+            #ai-promo .ai-new-pill, #ai-promo .ai-beta-pill {
+                font-size: 10px; font-weight: 700; letter-spacing: 1px;
+                background: rgba(255, 255, 255, .22); padding: 3px 9px; border-radius: 999px;
+                border: 1px solid rgba(255, 255, 255, .35);
+            }
+            #ai-promo p { margin: 0; font-size: 14px; line-height: 1.5; opacity: .96; }
+            #ai-promo .ai-beta-note {
+                display: block; margin-top: 8px;
+                font-size: 12px; opacity: .88; font-style: italic;
+            }
+            #ai-promo .ai-links {
+                margin-top: 10px;
+                display: flex; gap: 14px;
+                font-size: 12px;
+            }
+            #ai-promo .ai-links a {
+                color: #fff; opacity: .85; text-decoration: underline;
+                transition: opacity .15s;
+            }
+                #ai-promo .ai-links a:hover { opacity: 1; }
+
+        #ios-nav, #ios-close-hint { display: none; }
+        .ios-info-tooltip {
+            display: none; position: absolute; z-index: 9999;
+            max-width: min(320px, calc(100vw - 16px));
+            padding: 10px 12px; border-radius: 10px;
+            background: #111827; color: #fff;
+            font-size: 12px; line-height: 1.4;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .24);
+        }
+        .ios-info-tooltip.show { display: block; }
+
+        @media (hover: none) and (pointer: coarse) {
+            body {
+                padding: calc(52px + env(safe-area-inset-top)) 0 0;
+                background: var(--card);
+            }
+            #cont {
+                width: 100%;
+                max-width: none;
+                min-height: calc(100vh - 52px - env(safe-area-inset-top));
+                margin: 0;
+                padding: 0 20px 36px;
+                border-radius: 0;
+                box-shadow: none;
+            }
+            #ios-nav {
+                display: flex; align-items: center; justify-content: center;
+                position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+                height: calc(52px + env(safe-area-inset-top));
+                padding-top: env(safe-area-inset-top);
+                background: rgba(255, 255, 255, .96);
+                border-bottom: 1px solid var(--border);
+                backdrop-filter: blur(16px);
+            }
+            #ios-nav-title { font-weight: 700; }
+            #ios-done {
+                position: absolute; right: 12px; bottom: 9px;
+                padding: 7px 12px; border-radius: 8px;
+            }
+            #ios-close-hint {
+                position: fixed; left: 12px; right: 12px; bottom: 18px; z-index: 1000;
+                padding: 10px 12px; border-radius: 10px;
+                background: #111827; color: #fff; text-align: center;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, .24);
+            }
+            #ios-close-hint.show { display: block; }
+            h3 {
+                margin-top: 28px;
+                font-size: 15px;
+            }
+            #ai-promo {
+                align-items: flex-start;
+                gap: 14px;
+                margin: 0 -20px 28px;
+                padding: 24px 20px;
+                border-radius: 0;
+                box-shadow: none;
+            }
+            #ai-promo .ai-icon {
+                font-size: 34px;
+            }
+            #ai-promo h3 {
+                flex-wrap: wrap;
+                margin: 0 0 10px;
+                font-size: 24px;
+                line-height: 1.2;
+            }
+            #ai-promo p {
+                font-size: 16px;
+            }
+            #ai-promo .ai-beta-note,
+            #ai-promo .ai-links {
+                font-size: 14px;
+            }
+            .radio-group {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 10px;
+            }
+            .radio-group > .info-icon {
+                align-self: center;
+                justify-self: start;
+            }
+            .radio-pill {
+                min-height: 46px;
+                justify-content: flex-start;
+                padding: 8px 12px;
+                border-radius: 18px;
+                font-size: 16px;
+            }
+            .radio-pill input[type=radio] {
+                width: 18px;
+                height: 18px;
+                margin-right: 10px;
+            }
+            .item-row {
+                align-items: flex-start;
+                margin-top: 16px;
+                gap: 10px;
+                font-size: 17px;
+                line-height: 1.35;
+            }
+            .item-row input[type=checkbox] {
+                width: 22px;
+                height: 22px;
+                flex: 0 0 22px;
+                margin: 2px 8px 0 0;
+                border-radius: 6px;
+            }
+            .item-row .info-icon {
+                width: 24px;
+                height: 24px;
+                flex: 0 0 24px;
+                margin-left: auto;
+                font-size: 13px;
+            }
+            #max-safe {
+                width: 110px !important;
+                min-height: 40px;
+            }
+            #form,
+            #allow-safe-form {
+                align-items: stretch;
+                gap: 10px;
+            }
+            #addName,
+            #allow-safe-add {
+                max-width: none;
+                min-height: 42px;
+                margin-right: 0;
+            }
+            #list,
+            #allow-safe-list {
+                margin: 12px 0;
+                border-radius: 12px;
+            }
+        }
+
+        @keyframes ai-spark {
+            0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
+            50%      { transform: scale(1.2) rotate(18deg); opacity: .85; }
+        }
+    </style>
+</head>
 <body>
     <div id="ios-nav">
         <div id="ios-nav-title">Wizmage</div>
@@ -15,104 +356,82 @@
     </div>
     <div id="ios-close-hint">Use the browser back button to leave settings.</div>
     <div id='cont'>
-        <h1>Wizmage Settings</h1>
-        <f-section>
-            <x-t>
-                <b>Personal Info</b>
-                <x-info>Confirm your phone number</x-info>
-            </x-t>
-            <x-c id="phone-w">
-                <x-lbl>Phone number</x-lbl>
-                <f-row id="phone-t-t-w"><span id="phone-t-t"></span></f-row>
-                <f-row id="phone-t-set-w"><button type="button" id="phone-t-set"></button></f-row>
-            </x-c>
-        </f-section>
-        <f-section>
-            <x-t>
-                <b>Filter Setup</b>
-                <x-info>Configure the settings for your filter</x-info>
-            </x-t>
-            <x-c>
-                <x-lbl>Block any images that contains:</x-lbl>
-                <f-row id="unwanted-w">
-                    <select id="unwanted-opt">
-                        <option value=""></option>
-                        <option value="cust">(custom)</option>
-                    </select>
-                    <input id="unwanted-cust" maxlength="40" />
-                </f-row>
-                <f-row id="no-eye-w">
-                    <input type="checkbox" id="noEye" />
-                    <label for="noEye">Don't show the Eye in hidden images</label>
-                    <span id="noEyeInfo" class="info-icon"
-                        title="By default, an eye is shown when hovering the mouse over a hidden image. Clicking on it will show that image.">?</span>
-                </f-row>
-                <f-row id="always-block-w">
-                    <input type="checkbox" id="always-block" />
-                    <label for="always-block">Always block (even if safe)</label>
-                    <span class="info-icon"
-                        title="Keeps all images blocked; safe images show a green pattern.">?</span>
-                </f-row>
-                <x-lbl>
-                    Maximum Safe pixels
-                    <span class="info-icon"
-                        title="The maximum size of images that you always want shown. Must be 1-1000.">?</span>
-                </x-lbl>
-                <f-row id="max-safe-w">
-                    <input type="text" id="max-safe" />
-                </f-row>
-                <f-row id="close-on-click-w">
-                    <input type="checkbox" id="close-on-click" />
-                    <label for="close-on-click">Close menu on click</label>
-                    <span class="info-icon" title="Closes the popup menu, whenever an option is clicked.">?</span>
-                </f-row>
-            </x-c>
-        </f-section>
-        <f-section>
-            <x-t>
-                <b>Whitelist / Blacklist</b>
-                <x-info>Whitelist or Blacklist select sites</x-info>
-            </x-t>
-            <x-c id="exclusions">
-                <f-row id="w-b-list-w">
-                    <select id="w-b-list">
-                        <option value="W">Whitelist Sites</option>
-                        <option value="B">Blacklist Sites</option>
-                    </select>
-                    <span class="info-icon"
-                        title="With a Whitelist, Wizmage runs on all sites, besides for those in the list below. With a Blacklist, Wizmage only runs on the sites in the list below.">?</span>
-                </f-row>
-                <form id="form">
-                    <input type='text' id='addName'>
-                    <input type='submit' value='Add Exclusion' id='addBut'>
-                </form>
-                <x-info>a URL containing this text will be matched</x-info>
-                <x-lbl id="excluded-lbl">Exclusions</x-lbl>
-                <div id='list'></div>
-                <f-row id="free-text-w">
-                    <input type="checkbox" id="free-text" />
-                    <label for="free-text">Free Text</label>
-                </f-row>
-            </x-c>
-        </f-section>
-        <f-section id="always-block-exclusions-section" style="display:none;">
-            <x-t>
-                <b>Always Block Exceptions</b>
-                <x-info>Sites unblocked for Always Block</x-info>
-            </x-t>
-            <x-c id="always-block-exclusions">
-                <x-lbl>Allow safe images on these sites</x-lbl>
-                <form id="allow-safe-form">
-                    <input type='text' id='allow-safe-add'>
-                    <input type='submit' value='Add Site' id='allow-safe-add-but'>
-                </form>
-                <x-info>a URL containing this text will be matched</x-info>
-                <x-lbl id="allow-safe-lbl">Allowed Sites</x-lbl>
-                <div id='allow-safe-list'></div>
-            </x-c>
-        </f-section>
+        <div id="ai-promo">
+            <div class="ai-icon">&#x2726;</div>
+            <div class="ai-body">
+                <h3>Filter images by AI <span class="ai-new-pill">NEW</span> <span class="ai-beta-pill">BETA</span></h3>
+                <p>Instead of hiding every image, our AI examines each one and hides only those containing <b>men</b>, <b>women</b>, or any <b>people</b>. Pick one below.</p>
+                <span class="ai-beta-note">The AI isn't perfect and may occasionally miss or mis-classify images.</span>
+                <div class="ai-links">
+                    <a href="https://wizmage.com/ai#privacy" target="_blank">Privacy</a>
+                    <a href="https://wizmage.com/ai#terms" target="_blank">Terms</a>
+                </div>
+            </div>
+        </div>
+
+        <h3>What to block</h3>
+        <div class="radio-group">
+            <label class="radio-pill"><input type="radio" name="block-target" value="all" checked /> All Images</label>
+            <label class="radio-pill"><input type="radio" name="block-target" value="men" /> Men</label>
+            <label class="radio-pill"><input type="radio" name="block-target" value="women" /> Women</label>
+            <label class="radio-pill"><input type="radio" name="block-target" value="people" /> People</label>
+            <span class="info-icon" title="When anything other than 'All Images' is selected, image URLs are sent to the Wizmage server for AI inspection. Only images that match the selection are hidden.">?</span>
+        </div>
+
+        <h3>Display</h3>
+        <div class="item-row">
+            <input type="checkbox" id="noPattern" />
+            <label for="noPattern">Don't show pattern for hidden images</label>
+            <span id="noPatternInfo" class="info-icon" title="Note that the pattern was carefully designed to be partly transparent, so you can see what is behind it, yet opaque enough to be able to read white text on it, which without the pattern will be completely invisible. The pattern is also useful as you can see where image-buttons are (often though, Wizmage will detect that these are buttons (or icons) and show them automatically), and if you're buying a product, you can locate the image of the product to reveal with ALT-a.">?</span>
+        </div>
+        <div class="item-row">
+            <input type="checkbox" id="noEye" />
+            <label for="noEye">Don't show the Eye in hidden images</label>
+            <span id="noEyeInfo" class="info-icon" title="By default, an eye is shown when hovering the mouse over a hidden image. Clicking on it will show that image.">?</span>
+        </div>
+        <div class="item-row">
+            <input type="checkbox" id="always-block" />
+            <label for="always-block">Always block (even if safe)</label>
+            <span class="info-icon" title="Keeps all images blocked. Images classified as safe use a green pattern and can be allowed per website from the popup.">?</span>
+        </div>
+        <div class="item-row">
+            <label style="margin-right:8px">Maximum Safe pixels</label>
+            <input type="text" id="max-safe" style="width:70px;" />
+            <span class="info-icon" title="The maximum size of images that you always want shown. Must be 1-1000.">?</span>
+        </div>
+        <div class="item-row">
+            <input type="checkbox" id="close-on-click" />
+            <label for="close-on-click">Menu - close on click</label>
+            <span class="info-icon" title="Closes the popup menu, whenever an option is clicked.">?</span>
+        </div>
+
+        <h3>List type</h3>
+        <div class="radio-group">
+            <label class="radio-pill"><input type="radio" id="white-list" name="list-type" /> White List</label>
+            <label class="radio-pill"><input type="radio" id="black-list" name="list-type" /> Black List</label>
+            <span class="info-icon" title="With a White List, Wizmage runs on all sites, besides for those in the list below. With a Black List, Wizmage only runs on the sites in the list below.">?</span>
+        </div>
+        <form id="form">
+            <input type='text' id='addName'>
+            <input type='submit' value='Add Exception' id='addBut'>
+        </form>
+        <div style="margin-top:4px"><i>a URL containing any of the following lines will be matched</i></div>
+        <div id='list'></div>
+        <div class="item-row">
+            <input type="checkbox" id="free-text" />
+            <label for="free-text">Free Text</label>
+        </div>
+
+        <div id="always-block-exclusions-section" style="display:none;">
+            <h3>Always Block Exceptions</h3>
+            <form id="allow-safe-form">
+                <input type='text' id='allow-safe-add'>
+                <input type='submit' value='Add Exception' id='allow-safe-add-but'>
+            </form>
+            <div style="margin-top:4px"><i>safe images are shown on URLs containing any of the following lines</i></div>
+            <div id='allow-safe-list'></div>
+        </div>
     </div>
     <script src='options.js'></script>
 </body>
-
 </html>

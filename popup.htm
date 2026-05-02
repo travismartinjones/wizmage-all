@@ -1,52 +1,62 @@
 <html>
-
 <head>
     <title>Wizmage</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <link href="popup.css" rel="stylesheet" />
 </head>
-
 <body>
-    <div id="main">
-        <x-gear-h>
-            <img src="gear.png">
-            <x-h>Quick Settings</x-h>
-        </x-gear-h>
+    <div>
+        <div class='item'>
+            <a id='options' href="options.htm" target="_blank">Options</a>
+            <div id="close">&#x2715;</div>
+        </div>
         <div id="when-running">
-            <div class='item' id="show-img-w">
-                <button class="btn" id='showImages'>Show Images</button>
+            <div class='item'>
+                <button type="button" id='showImages'>Show Images</button>
             </div>
-            <div class='item chk-w'>
+            <div class='item'>
                 <input type='checkbox' id='excludeDomain'>
                 <label for='excludeDomain'><i-add-exclude></i-add-exclude> Website</label>
             </div>
-            <div class='item chk-w'>
-                <input type='checkbox' id='excludeForTab'>
-                <label for='excludeForTab'><i-add-exclude></i-add-exclude> Website for this Tab</label>
+            <div id="exclude-tab-wrap">
+                <div class='item'>
+                    <input type='checkbox' id='excludeForTab'>
+                    <label for='excludeForTab'><i-add-exclude></i-add-exclude> Website<br />
+                        for this Tab</label>
+                </div>
             </div>
-            <div class='item chk-w' id='exclude-always-block-w' style="display:none;">
+            <div class='item' id='exclude-always-block-w' style="display:none;">
                 <input type='checkbox' id='excludeAlwaysBlock'>
-                <label for='excludeAlwaysBlock'>Exclude Website Safe Block</label>
+                <label for='excludeAlwaysBlock'>Exclude Website<br />Safe Block</label>
             </div>
-            <div class='item chk-w'>
+            <div class='item'>
                 <input type='checkbox' id='pauseChk'>
                 <label for='pauseChk'>Pause</label>
             </div>
-            <div class='item chk-w'>
+            <div class='item'>
                 <input type='checkbox' id='pauseTab'>
-                <label for='pauseTab'>Pause for this Tab</label>
+                <label for='pauseTab'>Pause<br />
+                    for this Tab</label>
             </div>
         </div>
         <div id="err-msg"></div>
-        <div id="btns">
-            <a class="btn" id='options' href="options.htm" target="_blank">All Settings</a>
-            <button class="btn" id="close">Close</button>
+        <!--<a href="https://wizmage.com" id="wizmage-plus" target="_blank">WizmagePlus <img src="new.png" /></a>-->
+        <div class="item">
+            <div><a id="still-seeing-images">Feedback</a></div>
+            <ul id="advice">
+                <li>Email: extension@wizmage.com</li>
+            </ul>
         </div>
-        <div id="about-w">
-            <a id="about" href="https://wizmage.com/ai" target="_blank">About Wizmage AI</a>
+        <div class="item">
+            <a id="wizmage-ai-filter" href="options.htm" target="_blank">
+                <span class="ai-spark">&#x2726;</span>
+                <span class="ai-text">
+                    <span class="ai-title">Filter by AI</span>
+                    <span class="ai-sub">Men &middot; Women &middot; People</span>
+                </span>
+            </a>
         </div>
     </div>
     <script src='popup.js' type='text/javascript'></script>
 </body>
-
 </html>

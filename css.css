@@ -4,10 +4,13 @@
 
 .wizmage-hide { opacity: 0 !important; }
 
+.wizmage-locked { content: url("data:image/gif;base64,R0lGODlhAQABAIAAAP///////yH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==") !important; }
+
 .wizmage-no-bg { background-image: none !important; }
 
 .wizmage-pattern-bg-img.wizmage-cls { background-repeat: repeat !important; text-indent: 0 !important; }
 .wizmage-cls { -webkit-touch-callout: none !important; -webkit-user-select: none !important; user-select: none !important; }
+.wizmage-pattern-bg-img.wizmage-cls:not(.wizmage-hide) { visibility: visible !important; }
 
     .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-0 { background-image: var(--wzm-pattern-0, url(pattern0.png)) !important; }
 

@@ -14,20 +14,19 @@
       "matches": [ "\u003Call_urls>" ],
       "run_at": "document_start"
    } ],
-   "description": "Select or type what you don't want to see — Wizmage AI will detect and hide those images for you.",
+   "description": "Hides images with minimal browsing impact. Optional AI to hide only images of men, women, or any people.",
    "icons": {
       "128": "icon128.png",
       "16": "icon16.png",
       "48": "icon48.png"
    },
-   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw+kM2/16pVTymJfk4G0ZF2EUPs+MdcIuxnbC6ZeylQ3KVHTJVd55In5T708FFP8ZIPopVl8+kN355f1VBLe0rAaWs9XIlLm5pFM/YtvdM6h5Y6SqtzIxvloRE/8rxr8KeZNtTeVqlANz9Qc38UHAzzZ4zjWSZ3zYHNFjjipasTY9QhCl/Jr5bWt9xeWsex69+MgUk9NrKzQHgQVkXNt+OQ99sOICbOv5uyGRnWFfBKToadN8kw+hm6AQVVvDgE03ujkXbrJCmPUubom/Xl2PCNd/6gb9kSiR8OPVRSTg7iPDU/+hBzxGhK+zt/e9bJFQBIlBlD1Hk8p8jLiKP665KwIDAQAB",
    "manifest_version": 3,
-   "name": "Wizmage AI",
+   "name": "Wizmage Image Hider",
    "options_page": "options.htm",
    "permissions": [ "tabs", "storage" ],
-   "short_name": "WizmageAI",
+   "short_name": "Wizmage",
    "update_url": "https://clients2.google.com/service/update2/crx",
-   "version": "1.1.6",
+   "version": "4.1.3",
    "web_accessible_resources": [ {
       "matches": [ "\u003Call_urls>" ],
       "resources": [ "pattern0.png", "pattern1.png", "pattern2.png", "pattern3.png", "pattern4.png", "pattern5.png", "pattern6.png", "pattern7.png", "pattern-light0.png", "pattern-light1.png", "pattern-light2.png", "pattern-light3.png", "pattern-light4.png", "pattern-light5.png", "pattern-light6.png", "pattern-light7.png", "eye.svg", "undo.png", "css.css" ]

@@ -84,10 +84,12 @@ function wzmDefaultSettings() {
     return {
         paused: false,
         noEye: false,
+        noPattern: false,
         blackList: false,
         closeOnClick: false,
         maxSafe: 32,
-        alwaysBlock: false
+        alwaysBlock: false,
+        blockTarget: 'all'
     };
 }
 function wzmGetDomain(url) {
@@ -358,18 +360,13 @@ wzmTabsQuery({ active: true, currentWindow: true }, function (tabs) {
             document.getElementById('err-msg').innerText = msg;
         }
         currentSettings = Object.assign(wzmDefaultSettings(), settings);
-        if (!settings.token) {
-            showErr('Go to All Settings, and set your phone number.')
-            return;
-        }
-        if (!settings.unwanted) {
-            showErr('Go to All Settings, and select what you wish to block.')
-            return;
-        }
         document.getElementById('pauseChk').checked = !!settings.paused;
         document.getElementById('pauseTab').checked = !!settings.pausedForTab;
         document.getElementById('excludeDomain').checked = !!settings.excluded;
         document.getElementById('excludeForTab').checked = !!settings.excludedForTab;
+        let excludeTabWrap = document.getElementById('exclude-tab-wrap');
+        if (excludeTabWrap)
+            excludeTabWrap.style.display = 'block';
         if (excludeAlwaysBlock && excludeAlwaysBlockW) {
             excludeAlwaysBlock.checked = !!settings.allowSafeDomain;
             excludeAlwaysBlockW.style.display = settings.alwaysBlock ? '' : 'none';
@@ -471,4 +468,11 @@ wzmTabsQuery({ active: true, currentWindow: true }, function (tabs) {
         };
     }
 });
+let feedback = document.getElementById('still-seeing-images');
+if (feedback) {
+    feedback.onclick = function () {
+        var advice = document.getElementById('advice');
+        advice.style.display = advice.style.display == 'block' ? 'none' : 'block';
+    };
+}
 document.getElementById('close').onclick = function () { close(); };

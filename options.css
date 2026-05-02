@@ -50,15 +50,7 @@ f-section { display: flex; padding: 20px 0; }
         f-section > x-c > x-info { color: #535862; margin-top: 10px; }
     f-section:not(:last-child) { border-bottom: solid 1px #E9EAEB; }
 
-#phone-t-t-w { margin-top: 15px; }
-#phone-t-t { border: 4px solid #FFEBEB; border-radius: 8px; font-size: 16px; padding: 5px 15px; }
-#phone-t-set-w { margin-top: 15px; }
-#phone-t-set { background: #FDF2FA; color: #C11574; font-weight: 600; font-size: 14px; border: solid 1px #C11574; border-radius: 8px; display: flex; justify-content: center; align-items: center; width: 150px; height: 36px; cursor: pointer }
-#phone-w[data-has-num='Y'] #phone-t-t { border-color: #c3f9d9 }
-#phone-w[data-has-num='Y'] #phone-t-set { background: #ECFDF3; color: #027A48; border-color: #027A48; }
-#unwanted-w:not(.cust) > #unwanted-cust { display: none; }
-#unwanted-opt { width: 300px; margin-right: 20px; }
-#unwanted-cust { flex: 1; }
+#block-target { width: 300px; margin-right: 20px; }
 #no-eye-w { margin: 20px 0 30px; }
 #always-block-w { margin: 0 0 20px; }
 #close-on-click-w { margin-top: 20px; }
@@ -80,26 +72,6 @@ f-section { display: flex; padding: 20px 0; }
     #allow-safe-list > .item { margin-bottom: 10px; display: flex; align-items: center; }
         #allow-safe-list > .item > .url { background: #ECFDF3; color: #027A48; border-radius: 99px; padding: 2px 10px; }
         #allow-safe-list > .item > .delete { cursor: pointer; color: #A4A7AE; border: 1px solid #A4A7AE; border-radius: 12px; display: inline-flex; width: 12px; height: 12px; justify-content: center; align-items: center; font-size: 10px; margin-left: 5px; }
-
-.dialog { position: fixed; top: 0; right: 0; bottom: 0; left: 0; display: flex; justify-content: center; align-items: center; background: rgba(0, 0, 0, 0.8); }
-    .dialog > .c { background: white; padding: 24px 24px 60px; border-radius: 12px; width: 400px; box-sizing: border-box; }
-        .dialog > .c > .h { font-size: 18px; margin-bottom: 10px; color: #181D27; font-weight: 600; margin-top: 12px; }
-        .dialog > .c > .phone { margin-bottom: 10px; position: relative; margin-top: 15px; }
-            .dialog > .c > .phone > .cc { width: 95px; padding-left: 5px; margin-right: 5px; }
-            .dialog > .c > .phone > .plus { position: absolute; left: 4px; top: 11px; font-size: 16px; }
-        .dialog > .c > .field { margin-bottom: 10px; }
-        .dialog > .c > .why { margin-top: 10px; }
-        .dialog > .c > .t > a { color: inherit; }
-        .dialog > .c > .ctrls { display: flex; justify-content: space-between; margin-top: 25px; }
-            .dialog > .c > .ctrls > button { border: 1px solid #D5D7DA; background: #FFFFFF; color: #181D27; font-size: 16px; font-weight: 600; height: 44px; width: 170px; border-radius: 8px; cursor: pointer;}
-            .dialog > .c > .ctrls > .cont { color: white; background: #4300DA; }
-        .dialog > .c > .method { margin-bottom: 10px; display: flex; flex-direction: column; }
-            .dialog > .c > .method > label { margin-right: 10px; font-weight: 500; margin: 8px 0px; }
-                .dialog > .c > .method > label > input { vertical-align: -2px; margin: 0; }
-        .dialog > .c > .digits { display: flex; margin-top: 15px; }
-        .dialog > .c > .digits > .digit { width: 35px; margin-right: 8px; text-align: center; height: 38px; padding: 0; color: #004781; font-weight: 600; font-size: 18px; }
-    .dialog:not(.valid-cc) > .c > .method { display: none; }
-    .dialog:not(.cc-usa) > .c > .method > .sms { display: none; }
 
 @supports (-webkit-touch-callout: none) {
     html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
@@ -180,9 +152,8 @@ f-section { display: flex; padding: 20px 0; }
     f-section > x-c > x-lbl { font-size: 17px; font-weight: 500; color: #1C1C1E; margin: 12px 0 8px; }
     f-section > x-c > x-info { color: #6B6B73; font-size: 14px; margin-top: 8px; }
     f-row { min-height: 44px; padding: 6px 0; width: 100%; }
-    #unwanted-w, #w-b-list-w, #max-safe-w { flex-direction: column; align-items: flex-start; gap: 8px; width: 100%; }
-    #unwanted-opt, #w-b-list { width: 100%; max-width: 100%; min-width: 0; margin-right: 0; }
-    #unwanted-cust { width: 100%; max-width: 100%; min-width: 0; }
+    #block-target-w, #w-b-list-w, #max-safe-w { flex-direction: column; align-items: flex-start; gap: 8px; width: 100%; }
+    #block-target, #w-b-list { width: 100%; max-width: 100%; min-width: 0; margin-right: 0; }
     #max-safe { width: 120px; }
     #addName { width: 100%; }
     #list { width: 100%; border-radius: 12px; border: 1px solid #D1D1D6; background: #FAFAFB; }
@@ -220,9 +191,6 @@ f-section { display: flex; padding: 20px 0; }
     input[type="checkbox"]:checked { background: #34C759; }
     input[type="checkbox"]:checked::after { transform: translateX(18px); }
     .info-icon { color: #8E8E93; border-color: #C7C7CC; width: 16px; height: 16px; font-size: 11px; }
-    #phone-t-set { background: #007AFF; color: #FFFFFF; border-color: #007AFF; height: 34px; }
-    #phone-w[data-has-num='Y'] #phone-t-set { background: #34C759; color: #FFFFFF; border-color: #34C759; }
-    #phone-t-t { border-color: #E5E5EA; }
     #no-eye-w, #always-block-w, #close-on-click-w, #free-text-w { gap: 8px; }
     f-section:not(:last-child) { border-bottom: none; }
 }

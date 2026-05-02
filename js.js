@@ -92,20 +92,13 @@ function wzmKeepAlive() {
     }
 }
 wzmKeepAlive();
+const WZM_DEFAULT_SERVER_URL = 'wss://aiserver.wizmage.com:5002/ws';
 let wzmWsGlobal = null;
-function wzmWsSendResult(ws, img_id, result, fromAnalysis) {
-    let v = ws.reqCallbacks.get(img_id);
-    if (v) {
-        let url = v.url;
-        if (result == 0 && fromAnalysis && v.tryNext) {
-            ws.addReq(Object.assign({ img_id, url }, v.tryNext), { sendResponses: v.sendResponses, url });
-            return;
-        }
-        v.sendResponses.forEach(x => x(result));
-        ws.reqCallbacks.delete(img_id);
-        ws.urlResults.set(url, { result });
-    }
-}
+let wzmWsReqId = 0;
+let wzmWsQueue = null;
+let wzmWsFlushTimer = null;
+const wzmWsCache = new Map();
+const wzmWsPending = new Map();
 function wzmHash64(str) {
     let h1 = 0x811c9dc5, h2 = 0x01000193;
     for (let i = 0; i < str.length; i++) {
@@ -117,111 +110,146 @@ function wzmHash64(str) {
     }
     return (h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0');
 }
+function wzmMapAnalyzeResult(result, blockTarget) {
+    if (result === -1) return -1;
+    if (blockTarget === 'men') return (result === 1 || result === 3) ? 1 : 0;
+    if (blockTarget === 'women') return (result === 2 || result === 3) ? 1 : 0;
+    if (blockTarget === 'people') return (result !== 0) ? 1 : 0;
+    return 1;
+}
 function wzmEnsureWebSocket() {
     if (typeof WebSocket === 'undefined')
         return null;
-    if (!settings || !settings.token || !settings.unwanted)
+    if (!settings)
         return null;
+    let serverUrl = settings.serverUrl || WZM_DEFAULT_SERVER_URL;
     let ws = wzmWsGlobal;
-    if (ws && ws.unwanted !== settings.unwanted) {
+    if (ws && ws.url !== serverUrl) {
         try { ws.close(); } catch (err) { /* ignore */ }
         ws = null;
         wzmWsGlobal = null;
     }
     if (!ws || ws.readyState == WebSocket.CLOSING || ws.readyState == WebSocket.CLOSED || (ws.lastMsg && Date.now() - ws.lastMsg > 1000 * 40)) {
         try {
-            ws = new WebSocket('wss://wizman.wizmage.com/ws?token=' + settings.token);
+            ws = new WebSocket(serverUrl);
         } catch (err) {
             return null;
         }
-        ws.img_id = 0;
+        ws.url = serverUrl;
         ws.openPromise = new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; });
-        ws.onmessage = x => {
+        ws.onmessage = ev => {
             let d;
-            try { d = JSON.parse(x.data); } catch (err) { return; }
-            if (d.err == 'bad-user') {
-                settings.token = undefined;
-                settings.phone = undefined;
-                wzmStorageSetLocal({ settings });
-                return;
+            try { d = JSON.parse(ev.data); } catch (err) { return; }
+            if (d.pong) return;
+            if (!Array.isArray(d.results)) return;
+            for (let r of d.results) {
+                let req = ws.pendingReqs.get(r.id);
+                if (!req) continue;
+                ws.pendingReqs.delete(r.id);
+                let result = typeof r.result === 'number' ? r.result : -1;
+                wzmWsCache.set(req.cacheKey, result);
+                let waiters = wzmWsPending.get(req.cacheKey);
+                wzmWsPending.delete(req.cacheKey);
+                if (waiters) {
+                    for (let waiter of waiters)
+                        waiter.callback(wzmMapAnalyzeResult(result, waiter.blockTarget));
+                }
             }
-            if (d.img_id)
-                wzmWsSendResult(ws, d.img_id, d.result, true);
             ws.lastMsg = Date.now();
         };
-        ws.reqCallbacks = new Map();
-        ws.urlResults = new Map();
-        ws.addReq = (data, callback) => {
-            if (!ws.sendQueue) {
-                ws.sendQueue = [];
-                setTimeout(async () => {
-                    let requests = ws.sendQueue;
-                    ws.sendQueue = null;
-                    try {
-                        await ws.openPromise;
-                    } catch (err) {
-                        requests.forEach(x => wzmWsSendResult(ws, x.img_id, 0));
-                        return;
-                    }
-                    if (ws.readyState == WebSocket.CLOSING || ws.readyState == WebSocket.CLOSED) {
-                        requests.forEach(x => wzmWsSendResult(ws, x.img_id, 0));
-                        return;
-                    }
-                    try {
-                        ws.send(JSON.stringify({ requests, unwanted: ws.unwanted }));
-                    } catch (err) {
-                        requests.forEach(x => wzmWsSendResult(ws, x.img_id, 0));
-                    }
-                }, 100);
+        ws.onclose = () => {
+            for (let req of ws.pendingReqs.values()) {
+                let waiters = wzmWsPending.get(req.cacheKey);
+                wzmWsPending.delete(req.cacheKey);
+                if (waiters) {
+                    for (let waiter of waiters)
+                        waiter.callback(-1);
+                }
             }
-            ws.sendQueue.push(data);
-            ws.reqCallbacks.set(data.img_id, callback);
-            ws.urlResults.set(data.url, { sendResponses: callback.sendResponses, time: Date.now() });
+            ws.pendingReqs.clear();
         };
-        ws.unwanted = settings.unwanted;
+        ws.pendingReqs = new Map();
         wzmWsGlobal = ws;
     }
     return ws;
 }
-function wzmAnalyzeViaWebSocket(imgUrl, callback) {
-    if (!imgUrl || !callback) {
-        if (callback) callback(0);
-        return;
+function wzmQueueAnalyzeRequest(req) {
+    if (!wzmWsQueue) wzmWsQueue = [];
+    wzmWsQueue.push(req);
+    if (wzmWsQueue.length >= 32)
+        wzmFlushAnalyzeQueue();
+    else if (!wzmWsFlushTimer)
+        wzmWsFlushTimer = setTimeout(wzmFlushAnalyzeQueue, 50);
+}
+async function wzmFlushAnalyzeQueue() {
+    if (wzmWsFlushTimer) {
+        clearTimeout(wzmWsFlushTimer);
+        wzmWsFlushTimer = null;
     }
+    let queue = wzmWsQueue;
+    wzmWsQueue = null;
+    if (!queue || !queue.length) return;
     let ws = wzmEnsureWebSocket();
     if (!ws) {
-        callback(0);
+        wzmFailAnalyzeRequests(queue);
         return;
     }
-    let img_id = ++ws.img_id, url = imgUrl, b64;
-    if (url.startsWith('data:')) {
-        let m = /data:image\/\w+;base64,(.+)/.exec(url);
-        if (!m) {
-            callback(0);
-            return;
+    try { await ws.openPromise; } catch (err) { wzmFailAnalyzeRequests(queue); return; }
+    if (ws.readyState !== WebSocket.OPEN) {
+        wzmFailAnalyzeRequests(queue);
+        return;
+    }
+    try {
+        ws.send(JSON.stringify({ requests: queue.map(q => ({ id: q.id, url: q.url, pageUrl: q.pageUrl })) }));
+    } catch (err) {
+        wzmFailAnalyzeRequests(queue);
+        return;
+    }
+    for (let req of queue)
+        ws.pendingReqs.set(req.id, req);
+}
+function wzmFailAnalyzeRequests(queue) {
+    for (let req of queue) {
+        let waiters = wzmWsPending.get(req.cacheKey);
+        wzmWsPending.delete(req.cacheKey);
+        if (waiters) {
+            for (let waiter of waiters)
+                waiter.callback(-1);
         }
-        b64 = m[1];
-        url = 'hash:' + wzmHash64(b64);
     }
-    let urlResult = ws.urlResults.get(url);
-    if (urlResult && urlResult.sendResponses && Date.now() - urlResult.time < 1000 * 30) {
-        urlResult.sendResponses.push(callback);
+}
+function wzmAnalyzeViaWebSocket(imgUrl, callback) {
+    if (!imgUrl || !callback) {
+        if (callback) callback(-1);
         return;
     }
-    if (urlResult && urlResult.result) {
-        callback(urlResult.result);
+    let blockTarget = (settings && settings.blockTarget) || 'all';
+    if (blockTarget === 'all') {
+        callback(1);
         return;
     }
-    let cb = { sendResponses: [callback], url };
-    if (b64)
-        cb.tryNext = { b64 };
-    ws.addReq({ img_id, url }, cb);
+    let cacheKey = imgUrl.startsWith('data:') ? ('data:' + wzmHash64(imgUrl)) : imgUrl;
+    if (wzmWsCache.has(cacheKey)) {
+        callback(wzmMapAnalyzeResult(wzmWsCache.get(cacheKey), blockTarget));
+        return;
+    }
+    let waiters = wzmWsPending.get(cacheKey);
+    if (waiters) {
+        waiters.push({ callback, blockTarget });
+        return;
+    }
+    wzmWsPending.set(cacheKey, [{ callback, blockTarget }]);
+    wzmQueueAnalyzeRequest({ id: ++wzmWsReqId, url: imgUrl, pageUrl: location.href, cacheKey });
 }
 function wzmAnalyzeImage(imgUrl, callback) {
     if (!callback)
         callback = function () { };
     if (!imgUrl) {
-        callback(0);
+        callback(-1);
+        return;
+    }
+    if (settings && (!settings.blockTarget || settings.blockTarget === 'all')) {
+        callback(1);
         return;
     }
     if (wzmIsSafari || !wzmRuntime || !wzmRuntime.sendMessage) {
@@ -235,7 +263,7 @@ function wzmAnalyzeImage(imgUrl, callback) {
         responded = true;
         wzmAnalyzeViaWebSocket(imgUrl, callback);
     }, 1200);
-    wzmSendMessage({ r: "getAnalyzeResponse", imgUrl }, (r) => {
+    wzmSendMessage({ r: "getAnalyzeResponse", imgUrl, pageUrl: location.href }, (r) => {
         if (responded)
             return;
         responded = true;
@@ -269,11 +297,36 @@ function wzmDefaultSettings() {
     return {
         paused: false,
         noEye: false,
+        noPattern: false,
         blackList: false,
         closeOnClick: false,
         maxSafe: 32,
-        alwaysBlock: false
+        alwaysBlock: false,
+        blockTarget: 'all'
     };
+}
+function wzmLegacyUnwantedToBlockTarget(unwanted) {
+    let value = (unwanted || '').toLowerCase().trim();
+    if (!value)
+        return 'all';
+    if (value == 'women' || value == 'woman' || value == 'a woman' || value == 'female' || value == 'females')
+        return 'women';
+    if (value == 'men' || value == 'man' || value == 'a man' || value == 'male' || value == 'males')
+        return 'men';
+    if (value == 'people' || value == 'person' || value == 'a person' || value == 'crowd' || value == 'a crowd' || value == 'crowd of people')
+        return 'people';
+    return 'all';
+}
+function wzmNormalizeSettings(s) {
+    s = Object.assign(wzmDefaultSettings(), (s && typeof s === 'object') ? s : {});
+    if (!s.blockTarget)
+        s.blockTarget = wzmLegacyUnwantedToBlockTarget(s.unwanted);
+    if (['all', 'men', 'women', 'people'].indexOf(s.blockTarget) === -1)
+        s.blockTarget = 'all';
+    s.maxSafe = +s.maxSafe || 32;
+    if (s.maxSafe < 1 || s.maxSafe > 1000)
+        s.maxSafe = 32;
+    return s;
 }
 function wzmLocalDomain() {
     return (typeof location !== 'undefined' && location.host) ? location.host.toLowerCase() : '';
@@ -298,9 +351,7 @@ function wzmDomainMatchesList(domain, list) {
 }
 function wzmGetEffectiveSettingsFromStorage(callback) {
     wzmStorageGetLocal(['settings', 'urlList', 'allowSafeDomains'], function (data) {
-        let s = data && data.settings && typeof data.settings === 'object'
-            ? Object.assign(wzmDefaultSettings(), data.settings)
-            : wzmDefaultSettings();
+        let s = wzmNormalizeSettings(data && data.settings);
         let urlList = (data && Array.isArray(data.urlList)) ? data.urlList : [];
         let allowSafeDomains = (data && Array.isArray(data.allowSafeDomains)) ? data.allowSafeDomains : [];
         let domain = wzmLocalDomain();
@@ -318,9 +369,7 @@ function applySettingsAndStart(s) {
     settingsApplied = true;
     settingsResolved = true;
     clearTimeout(settingsFallback);
-    settings = s || wzmDefaultSettings();
-    if (settings.alwaysBlock == null)
-        settings.alwaysBlock = false;
+    settings = wzmNormalizeSettings(s);
     //if is active - go
     if (settings
         && ((!settings.blackList && !settings.excluded && !settings.excludedForTab)
@@ -455,9 +504,7 @@ function RefreshSettings(callback) {
             return;
         }
         let updated = false;
-        settings = s;
-        if (settings.alwaysBlock == null)
-            settings.alwaysBlock = false;
+        settings = wzmNormalizeSettings(s);
         if (window.wzmUpdateSettings) {
             window.wzmUpdateSettings(settings);
             updated = true;
@@ -726,12 +773,32 @@ function DoWin(win, winContentLoaded) {
     win.wzmUpdateSettings = function (next) {
         if (!next || typeof next !== 'object')
             return;
-        _settings = next;
-        if (_settings.alwaysBlock == null)
-            _settings.alwaysBlock = false;
+        let oldBlockTarget = _settings.blockTarget;
+        let oldMaxSafe = _settings.maxSafe;
+        let oldAlwaysBlock = !!_settings.alwaysBlock;
+        _settings = wzmNormalizeSettings(next);
         allowSafeDomain = _settings.alwaysBlock ? !!_settings.allowSafeDomain : false;
+        if (oldBlockTarget !== _settings.blockTarget || oldMaxSafe !== _settings.maxSafe || oldAlwaysBlock !== !!_settings.alwaysBlock)
+            ReprocessBlockedImages();
         UpdateAllowSafeForPage();
     };
+    function ReprocessBlockedImages() {
+        if (showAll || !elList.length)
+            return;
+        let copy = elList.slice();
+        for (let el of copy) {
+            if (!el || !el.wzmBeenBlocked)
+                continue;
+            el.wzmLastCheckedSrc = null;
+            el.wzmChecking = false;
+            el.wzmBad = false;
+            el.wzmUnchecked = true;
+            el.wzmAlwaysBlock = false;
+            ShowEl.call(el);
+            el.wzmAllowSrc = null;
+            DoElement.call(el);
+        }
+    }
     function DoElements(el, includeEl) {
         if (includeEl && tagList.indexOf(el.tagName) > -1)
             DoElement.call(el);
@@ -929,8 +996,9 @@ function DoWin(win, winContentLoaded) {
                 wzmAnalyzeImage(imgUrl, (r) => {
                     if (isImg(el) && el.src != blankImg && el.src != imgUrl)
                         return;
+                    r = Number(r);
                     el.wzmChecking = false;
-                    if (r == '1') {
+                    if (r === 1) {
                         DoWizmageBG(el, false);
                         el.wzmBad = true;
                         el.wzmAlwaysBlock = false;
@@ -938,7 +1006,7 @@ function DoWin(win, winContentLoaded) {
                         DoWizmageBG(el, true);
                         return;
                     }
-                    if (r == '-1') {
+                    if (r === 0) {
                         if (_settings.alwaysBlock && !showSafeImagesForPage) {
                             DoWizmageBG(el, false);
                             el.wzmBad = false;
