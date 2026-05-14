@@ -77,14 +77,18 @@ function wzmStorageSetLocal(items) {
         // ignore
     }
 }
+function wzmShouldKeepAlive() {
+    return !wzmIsSafari && !wzmIsIOS && !!wzmRuntime && !!wzmRuntime.connect;
+}
 function wzmKeepAlive() {
-    if (!wzmRuntime || !wzmRuntime.connect)
+    if (!wzmShouldKeepAlive())
         return;
     try {
         let port = wzmRuntime.connect({ name: 'wzm-keepalive' });
         if (port && port.onDisconnect) {
             port.onDisconnect.addListener(() => {
-                setTimeout(wzmKeepAlive, 1000);
+                if (wzmShouldKeepAlive())
+                    setTimeout(wzmKeepAlive, 1000);
             });
         }
     } catch (err) {

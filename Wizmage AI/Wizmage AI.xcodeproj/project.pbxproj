@@ -39,7 +39,6 @@
 		E818BE7B2F2323B2005A3C39 /* icon48.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE532F2323B2005A3C39 /* icon48.png */; };
 		E818BE7C2F2323B2005A3C39 /* options.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BE542F2323B2005A3C39 /* options.js */; };
 		E818BE7E2F2323B2005A3C39 /* icon128.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE562F2323B2005A3C39 /* icon128.png */; };
-		E818BE7F2F2323B2005A3C39 /* _metadata in Resources */ = {isa = PBXBuildFile; fileRef = E818BE572F2323B2005A3C39 /* _metadata */; };
 		E818BE802F2323B2005A3C39 /* pattern4.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE582F2323B2005A3C39 /* pattern4.png */; };
 		E818BE812F2323B2005A3C39 /* icon-d.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE592F2323B2005A3C39 /* icon-d.png */; };
 		E818BE822F2323B2005A3C39 /* pattern5.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE5A2F2323B2005A3C39 /* pattern5.png */; };
@@ -78,7 +77,6 @@
 		E818BEA32F2323B2005A3C39 /* icon48.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE532F2323B2005A3C39 /* icon48.png */; };
 		E818BEA42F2323B2005A3C39 /* options.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BE542F2323B2005A3C39 /* options.js */; };
 		E818BEA62F2323B2005A3C39 /* icon128.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE562F2323B2005A3C39 /* icon128.png */; };
-		E818BEA72F2323B2005A3C39 /* _metadata in Resources */ = {isa = PBXBuildFile; fileRef = E818BE572F2323B2005A3C39 /* _metadata */; };
 		E818BEA82F2323B2005A3C39 /* pattern4.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE582F2323B2005A3C39 /* pattern4.png */; };
 		E818BEA92F2323B2005A3C39 /* icon-d.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE592F2323B2005A3C39 /* icon-d.png */; };
 		E818BEAA2F2323B2005A3C39 /* pattern5.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE5A2F2323B2005A3C39 /* pattern5.png */; };
@@ -183,7 +181,6 @@
 		E818BE532F2323B2005A3C39 /* icon48.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = icon48.png; path = ../../icon48.png; sourceTree = "<group>"; };
 		E818BE542F2323B2005A3C39 /* options.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = options.js; path = ../../options.js; sourceTree = "<group>"; };
 		E818BE562F2323B2005A3C39 /* icon128.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = icon128.png; path = ../../icon128.png; sourceTree = "<group>"; };
-		E818BE572F2323B2005A3C39 /* _metadata */ = {isa = PBXFileReference; lastKnownFileType = folder; name = _metadata; path = ../../_metadata; sourceTree = "<group>"; };
 		E818BE582F2323B2005A3C39 /* pattern4.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = pattern4.png; path = ../../pattern4.png; sourceTree = "<group>"; };
 		E818BE592F2323B2005A3C39 /* icon-d.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "icon-d.png"; path = "../../icon-d.png"; sourceTree = "<group>"; };
 		E818BE5A2F2323B2005A3C39 /* pattern5.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = pattern5.png; path = ../../pattern5.png; sourceTree = "<group>"; };
@@ -351,7 +348,6 @@
 				E818BE532F2323B2005A3C39 /* icon48.png */,
 				E818BE542F2323B2005A3C39 /* options.js */,
 				E818BE562F2323B2005A3C39 /* icon128.png */,
-				E818BE572F2323B2005A3C39 /* _metadata */,
 				E818BE582F2323B2005A3C39 /* pattern4.png */,
 				E818BE592F2323B2005A3C39 /* icon-d.png */,
 				E818BE5A2F2323B2005A3C39 /* pattern5.png */,
@@ -578,7 +574,6 @@
 				E818BEAA2F2323B2005A3C39 /* pattern5.png in Resources */,
 				E818BEB12F2323B2005A3C39 /* manifest.json in Resources */,
 				E818BEC32F2323B2005A3C39 /* pattern-light0.png in Resources */,
-				E818BEA72F2323B2005A3C39 /* _metadata in Resources */,
 				E818BEAF2F2323B2005A3C39 /* pattern3.png in Resources */,
 				E818BE9E2F2323B2005A3C39 /* migrate-settings.htm in Resources */,
 				E818BE9D2F2323B2005A3C39 /* icon16.png in Resources */,
@@ -624,7 +619,6 @@
 				E818BE822F2323B2005A3C39 /* pattern5.png in Resources */,
 				E818BE892F2323B2005A3C39 /* manifest.json in Resources */,
 				E818BE9B2F2323B2005A3C39 /* pattern-light0.png in Resources */,
-				E818BE7F2F2323B2005A3C39 /* _metadata in Resources */,
 				E818BE872F2323B2005A3C39 /* pattern3.png in Resources */,
 				E818BE762F2323B2005A3C39 /* migrate-settings.htm in Resources */,
 				E818BE752F2323B2005A3C39 /* icon16.png in Resources */,
@@ -841,8 +835,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = B95CT2R48K;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = Q2DJH3DFLH;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Wizmage Image Hider Extension";
@@ -853,12 +847,12 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.3;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.yourCompany.Wizmage-AI.Extension";
+				PRODUCT_BUNDLE_IDENTIFIER = com.travismartinjones.WizmageImageHider.Dev.Extension;
 				PRODUCT_NAME = "Wizmage AI Extension";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -875,8 +869,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = B95CT2R48K;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = Q2DJH3DFLH;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Wizmage Image Hider Extension";
@@ -887,12 +881,12 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.3;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.yourCompany.Wizmage-AI.Extension";
+				PRODUCT_BUNDLE_IDENTIFIER = com.travismartinjones.WizmageImageHider.Extension;
 				PRODUCT_NAME = "Wizmage AI Extension";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -912,8 +906,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = B95CT2R48K;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = Q2DJH3DFLH;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (App)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Wizmage Image Hider";
@@ -927,14 +921,14 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.3;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
 					"-framework",
 					WebKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.yourCompany.Wizmage-AI";
+				PRODUCT_BUNDLE_IDENTIFIER = com.travismartinjones.WizmageImageHider.Dev;
 				PRODUCT_NAME = "Wizmage AI";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -953,8 +947,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = B95CT2R48K;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = Q2DJH3DFLH;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (App)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Wizmage Image Hider";
@@ -968,14 +962,14 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.3;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
 					"-framework",
 					WebKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.yourCompany.Wizmage-AI";
+				PRODUCT_BUNDLE_IDENTIFIER = com.travismartinjones.WizmageImageHider;
 				PRODUCT_NAME = "Wizmage AI";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -994,8 +988,8 @@
 			buildSettings = {
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = B95CT2R48K;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = Q2DJH3DFLH;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -1009,12 +1003,12 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.14;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.3;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.yourCompany.Wizmage-AI.Extension";
+				PRODUCT_BUNDLE_IDENTIFIER = com.travismartinjones.WizmageImageHider.Extension;
 				PRODUCT_NAME = "Wizmage AI Extension";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
@@ -1031,8 +1025,8 @@
 			buildSettings = {
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = B95CT2R48K;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = Q2DJH3DFLH;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -1046,12 +1040,12 @@
 					"@executable_path/../../../../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.14;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.3;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.yourCompany.Wizmage-AI.Extension";
+				PRODUCT_BUNDLE_IDENTIFIER = com.travismartinjones.WizmageImageHider.Extension;
 				PRODUCT_NAME = "Wizmage AI Extension";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
@@ -1070,8 +1064,8 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = B95CT2R48K;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = Q2DJH3DFLH;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -1086,14 +1080,14 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.14;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.3;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
 					"-framework",
 					WebKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.yourCompany.Wizmage-AI";
+				PRODUCT_BUNDLE_IDENTIFIER = com.travismartinjones.WizmageImageHider;
 				PRODUCT_NAME = "Wizmage AI";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
@@ -1113,8 +1107,8 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = B95CT2R48K;
+				CURRENT_PROJECT_VERSION = 4;
+				DEVELOPMENT_TEAM = Q2DJH3DFLH;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -1129,14 +1123,14 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.14;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.3;
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
 					"-framework",
 					WebKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.yourCompany.Wizmage-AI";
+				PRODUCT_BUNDLE_IDENTIFIER = com.travismartinjones.WizmageImageHider;
 				PRODUCT_NAME = "Wizmage AI";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;

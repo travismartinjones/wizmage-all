@@ -16,7 +16,11 @@ import SafariServices
 typealias PlatformViewController = NSViewController
 #endif
 
-let extensionBundleIdentifier = "com.yourCompany.Wizmage-AI.Extension"
+#if os(iOS) && DEBUG
+let extensionBundleIdentifier = "com.travismartinjones.WizmageImageHider.Dev.Extension"
+#else
+let extensionBundleIdentifier = "com.travismartinjones.WizmageImageHider.Extension"
+#endif
 
 class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMessageHandler {
 
