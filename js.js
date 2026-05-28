@@ -378,7 +378,7 @@ function applySettingsAndStart(s) {
     if (settings
         && ((!settings.blackList && !settings.excluded && !settings.excludedForTab)
             || (settings.blackList && (settings.excluded || settings.excludedForTab)))
-        && !settings.paused && !settings.pausedForTab && location.host != 'mail.google.com') {
+        && !settings.paused && !settings.pausedForTab) {
         //change icon
         wzmSendMessage({ r: 'setColorIcon', toggle: true });
         //do main window
@@ -539,7 +539,8 @@ function DoWin(win, winContentLoaded) {
     lastTapShownEl, lastTapEyeEl, longPressMoveThreshold = 10, rehideTapWindow = 1000,
     allowSafeDomain = _settings.alwaysBlock ? !!_settings.allowSafeDomain : false,
     twoFingerTapState = 0, twoFingerTapPossible = false, twoFingerTapMoved = false, twoFingerStartX = 0, twoFingerStartY = 0,
-    showSafeImagesForPage = (_settings.alwaysBlock && allowSafeDomain);
+    showSafeImagesForPage = (_settings.alwaysBlock && allowSafeDomain),
+    intervalsStarted = false;
     //global show images
     win.wzmShowImages = function () {
         if (hasStarted) {
@@ -705,7 +706,6 @@ function DoWin(win, winContentLoaded) {
         observers.push(observer);
     }
     //process all elements with background-image, and observe mutations for new ones
-    let intervalsStarted = false;
     function Start() {
         if (hasStarted)
             return;
@@ -900,6 +900,59 @@ function DoWin(win, winContentLoaded) {
         twoFingerTapPossible = false;
         twoFingerTapMoved = false;
     }
+    function IsSafeRenderedSize(width, height) {
+        return width > 0 && height > 0 && (width <= _settings.maxSafe || height <= _settings.maxSafe);
+    }
+    function SizeNeedsBlocking(width, height) {
+        return (width == 0 || width > _settings.maxSafe) && (height == 0 || height > _settings.maxSafe);
+    }
+    function CssLengthToPx(value, base) {
+        value = (value || '').trim().toLowerCase();
+        if (!value || value == 'auto' || value == 'cover' || value == 'contain')
+            return null;
+        let num = parseFloat(value);
+        if (!isFinite(num) || num <= 0)
+            return null;
+        if (value.endsWith('%'))
+            return base > 0 ? base * num / 100 : null;
+        if (value.endsWith('px') || /^[\d.]+$/.test(value))
+            return num;
+        return null;
+    }
+    function IsSafeBackgroundSize(compStyle, width, height) {
+        let backgroundSize = (compStyle.backgroundSize || '').split(',')[0].trim();
+        if (!backgroundSize)
+            return false;
+        let parts = backgroundSize.split(/\s+/);
+        let bgWidth = CssLengthToPx(parts[0], width);
+        let bgHeight = parts.length > 1 ? CssLengthToPx(parts[1], height) : null;
+        return (bgWidth != null && bgWidth <= _settings.maxSafe) || (bgHeight != null && bgHeight <= _settings.maxSafe);
+    }
+    function SafeControlLimit() {
+        return _settings.maxSafe + Math.min(8, Math.max(3, Math.ceil(_settings.maxSafe / 3)));
+    }
+    function IsFormControl(el) {
+        return /^(BUTTON|INPUT|SELECT|TEXTAREA)$/.test(el.tagName);
+    }
+    function IsInteractiveElement(el) {
+        if (!el || !el.tagName)
+            return false;
+        if (IsFormControl(el) || el.tagName == 'A')
+            return true;
+        let role = (el.getAttribute('role') || '').toLowerCase();
+        if (/^(button|checkbox|switch|menuitem|tab|link|option)$/.test(role))
+            return true;
+        let control = el.closest('button,a[href],input,select,textarea,[role="button"],[role="checkbox"],[role="switch"],[role="menuitem"],[role="tab"],[role="link"],[aria-label],[aria-labelledby]');
+        return !!control && control != doc.body && control != doc.documentElement;
+    }
+    function IsSafeControlBackground(el, width, height) {
+        if (!el || !el.tagName)
+            return false;
+        let limit = SafeControlLimit();
+        if (IsFormControl(el))
+            return (width > 0 && width <= limit) || (height > 0 && height <= limit);
+        return width > 0 && height > 0 && width <= limit && height <= limit && IsInteractiveElement(el);
+    }
     function DoElement() {
         if (showAll)
             return;
@@ -918,7 +971,7 @@ function DoWin(win, winContentLoaded) {
             if ((el.src == blankImg && !el.srcset) || (el.wzmAllowSrc && el.src == el.wzmAllowSrc.src && el.srcset == el.wzmAllowSrc.srcset)) { //was successfully replaced
                 DoHidden(el, false);
             }
-            else if ((elWidth == 0 || elWidth > _settings.maxSafe) && (elHeight == 0 || elHeight > _settings.maxSafe) //needs to be hidden - we need to catch 0 too, as sometimes images start off as zero
+            else if (SizeNeedsBlocking(elWidth, elHeight) //needs to be hidden - we need to catch 0 too, as sometimes images start off as zero
                 && !(el.src && (el.src.endsWith('.svg') || el.src.startsWith('data:image/svg+xml')))) {
                 let srcForCheck = el.src;
                 if (srcForCheck && srcForCheck !== blankImg && el.wzmLastCheckedSrc !== srcForCheck) {
@@ -966,7 +1019,9 @@ function DoWin(win, winContentLoaded) {
             let compStyle = getComputedStyle(el), bgimg = compStyle.backgroundImage, width = parseInt(compStyle.width) || el.clientWidth, height = parseInt(compStyle.height) || el.clientHeight; //as per https://developer.mozilla.org/en/docs/Web/API/window.getComputedStyle, getComputedStyle will return the 'used values' for width and height, which is always in px. We also use clientXXX, since sometimes compStyle returns NaN.
             if (bgimg && bgimg != 'none'
                 && !el.wzmWizmaged
-                && (width == 0 || width > _settings.maxSafe) && (height == 0 || height > _settings.maxSafe) /*we need to catch 0 too, as sometimes elements start off as zero*/
+                && SizeNeedsBlocking(width, height) /*we need to catch 0 too, as sometimes elements start off as zero*/
+                && !IsSafeBackgroundSize(compStyle, width, height)
+                && !IsSafeControlBackground(el, width, height)
                 && bgimg.indexOf('url(') != -1
                 && !bgimg.startsWith(urlExtensionUrl)) {
                 imgUrl = bgimg;
@@ -1036,8 +1091,13 @@ function DoWin(win, winContentLoaded) {
     }
     function CheckBgImg() {
         let el = this;
-        if ((el.height <= _settings.maxSafe || el.width <= _settings.maxSafe) && el.owner)
-            ShowEl.call(el.owner);
+        if (el.owner) {
+            let compStyle = getComputedStyle(el.owner);
+            let width = parseInt(compStyle.width) || el.owner.clientWidth;
+            let height = parseInt(compStyle.height) || el.owner.clientHeight;
+            if (IsSafeRenderedSize(el.width, el.height) || IsSafeControlBackground(el.owner, width, height))
+                ShowEl.call(el.owner);
+        }
         this.onload = null;
     }
     ;

@@ -309,9 +309,7 @@ wzmTabsQuery({ active: true, currentWindow: true }, function (tabs) {
     function isFilteringActive(settings) {
         if (!settings)
             return false;
-        let domain = activeTab && activeTab.url ? wzmGetDomain(activeTab.url) : null;
-        return domain != 'mail.google.com'
-            && !settings.paused
+        return !settings.paused
             && !settings.pausedForTab
             && ((!settings.blackList && !settings.excluded && !settings.excludedForTab)
                 || (settings.blackList && (settings.excluded || settings.excludedForTab)));
