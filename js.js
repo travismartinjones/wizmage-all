@@ -747,8 +747,10 @@ function DoWin(win, winContentLoaded) {
             setInterval(CheckMousePosition, 250);
             setInterval(UpdateElRects, 3000);
         }
-        for (let to of [250, 1500, 4500, 7500])
+        for (let to of [250, 1500, 4500, 7500]) {
             setTimeout(UpdateElRects, to);
+            setTimeout(RescanElements, to);
+        }
         //ALT-a, ALT-z
         doc.addEventListener('keydown', DocKeyDown);
         //notice when mouse has moved (skip on iOS to avoid hover flicker)
@@ -782,8 +784,10 @@ function DoWin(win, winContentLoaded) {
         let oldAlwaysBlock = !!_settings.alwaysBlock;
         _settings = wzmNormalizeSettings(next);
         allowSafeDomain = _settings.alwaysBlock ? !!_settings.allowSafeDomain : false;
-        if (oldBlockTarget !== _settings.blockTarget || oldMaxSafe !== _settings.maxSafe || oldAlwaysBlock !== !!_settings.alwaysBlock)
+        if (oldBlockTarget !== _settings.blockTarget || oldMaxSafe !== _settings.maxSafe || oldAlwaysBlock !== !!_settings.alwaysBlock) {
             ReprocessBlockedImages();
+            RescanElements();
+        }
         UpdateAllowSafeForPage();
     };
     function ReprocessBlockedImages() {
@@ -802,6 +806,11 @@ function DoWin(win, winContentLoaded) {
             el.wzmAllowSrc = null;
             DoElement.call(el);
         }
+    }
+    function RescanElements() {
+        if (showAll || !hasStarted || !doc.body)
+            return;
+        DoElements(doc.body, false);
     }
     function DoElements(el, includeEl) {
         if (includeEl && tagList.indexOf(el.tagName) > -1)
