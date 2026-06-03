@@ -421,7 +421,10 @@ else {
     let responded = false;
     wzmSendMessage({ r: 'getSettings' }, function (s) {
         responded = true;
-        applySettingsAndStart(s);
+        if (s && typeof s === 'object')
+            applySettingsAndStart(s);
+        else
+            loadSettingsFromStorage();
     });
     setTimeout(function () {
         if (!responded)
@@ -529,9 +532,18 @@ function RefreshSettings(callback) {
         wzmGetEffectiveSettingsFromStorage(applySettings);
         return;
     }
+    let responded = false;
     wzmSendMessage({ r: 'getSettings' }, function (s) {
-        applySettings(s);
+        responded = true;
+        if (s && typeof s === 'object')
+            applySettings(s);
+        else
+            wzmGetEffectiveSettingsFromStorage(applySettings);
     });
+    setTimeout(function () {
+        if (!responded)
+            wzmGetEffectiveSettingsFromStorage(applySettings);
+    }, 400);
 }
 function DoWin(win, winContentLoaded) {
     let _settings = settings, //DoWin is only called after settings is set
