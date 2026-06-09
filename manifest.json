@@ -4,6 +4,9 @@
       "default_popup": "popup.htm",
       "default_title": "Overlay Images"
    },
+   "background": {
+      "service_worker": "service_worker.js"
+   },
    "content_scripts": [ {
       "all_frames": true,
       "css": [ "css.css" ],
