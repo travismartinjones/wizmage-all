@@ -5,6 +5,7 @@
 .wizmage-hide { opacity: 0 !important; }
 
 .wizmage-locked { content: url("data:image/gif;base64,R0lGODlhAQABAIAAAP///////yH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==") !important; }
+.wizmage-locked.wizmage-pattern-bg-img { opacity: 1 !important; object-fit: fill !important; }
 
 .wizmage-no-bg { background-image: none !important; }
 
@@ -50,3 +51,5 @@
 .wizmage-pattern-bg-img.wizmage-cls.wizmage-checking.wizmage-light { background-image: var(--wzm-pattern-light-2, url(pattern-light2.png)) !important; }
 
 html.wizmage-running div:before, html.wizmage-running div:after { background-image: none !important; }
+html.wizmage-running .wizmage-pattern-bg-img:before,
+html.wizmage-running .wizmage-pattern-bg-img:after { background-image: none !important; }

@@ -278,7 +278,7 @@ function wzmAnalyzeImage(imgUrl, callback) {
             callback(r);
     });
 }
-let showAll = false, extensionUrl = wzmGetURL(''), urlExtensionUrl = 'url("' + extensionUrl, blankImg = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///////yH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==', urlBlankImg = 'url("' + blankImg + '")', eyeCSSUrl = 'url(' + extensionUrl + "eye.svg" + ')', undoCSSUrl = 'url(' + extensionUrl + "undo.png" + ')', tagList = ['IMG', 'DIV', 'SPAN', 'A', 'UL', 'LI', 'TD', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'I', 'STRONG', 'B', 'BIG', 'BUTTON', 'CENTER', 'SECTION', 'TABLE', 'FIGURE', 'ASIDE', 'HEADER', 'VIDEO', 'P', 'ARTICLE', 'PICTURE', 'BA-IMAGE'], tagListCSS = tagList.join(), iframes = [], contentLoaded = false, settings, quotesRegex = /['"]/g;
+let showAll = false, extensionUrl = wzmGetURL(''), blankImg = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///////yH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==', urlBlankImg = 'url("' + blankImg + '")', eyeCSSUrl = 'url(' + extensionUrl + "eye.svg" + ')', undoCSSUrl = 'url(' + extensionUrl + "undo.png" + ')', tagList = ['IMG', 'DIV', 'SPAN', 'A', 'UL', 'LI', 'TD', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'I', 'STRONG', 'B', 'BIG', 'BUTTON', 'CENTER', 'SECTION', 'TABLE', 'FIGURE', 'ASIDE', 'HEADER', 'VIDEO', 'P', 'ARTICLE', 'PICTURE', 'BA-IMAGE'], tagListCSS = tagList.join(), iframes = [], contentLoaded = false, settings, quotesRegex = /['"]/g;
 function wzmApplyPatternAssetVars(doc) {
     if (!doc || !doc.documentElement || !doc.documentElement.style)
         return;
@@ -540,13 +540,16 @@ function DoWin(win, winContentLoaded) {
     allowSafeDomain = _settings.alwaysBlock ? !!_settings.allowSafeDomain : false,
     twoFingerTapState = 0, twoFingerTapPossible = false, twoFingerTapMoved = false, twoFingerStartX = 0, twoFingerStartY = 0,
     showSafeImagesForPage = (_settings.alwaysBlock && allowSafeDomain),
-    intervalsStarted = false;
+    lifecycleRescanIX = 0, intervalsStarted = false;
     //global show images
     win.wzmShowImages = function () {
         if (hasStarted) {
             doc.removeEventListener('keydown', DocKeyDown);
             doc.removeEventListener('mousemove', DocMouseMove);
+            doc.removeEventListener('visibilitychange', DocVisibilityChange);
             win.removeEventListener('scroll', WindowScroll);
+            win.removeEventListener('focus', WindowFocus);
+            win.removeEventListener('pageshow', WindowPageShow);
             if (wzmIsIOS) {
                 doc.removeEventListener('touchstart', DocTouchStart, true);
                 doc.removeEventListener('touchmove', DocTouchMove, true);
@@ -566,11 +569,11 @@ function DoWin(win, winContentLoaded) {
             for (let obs of observers)
                 obs.disconnect();
             observers.length = 0;
-            RemoveClass(document.documentElement, 'wizmage-running');
+            RemoveClass(doc.documentElement, 'wizmage-running');
             hasStarted = false;
         }
         else
-            AddClass(document.documentElement, 'wizmage-show-html');
+            AddClass(doc.documentElement, 'wizmage-show-html');
     };
     win.wzmRestart = function () {
         if (hasStarted)
@@ -630,6 +633,38 @@ function DoWin(win, winContentLoaded) {
                 ShowEyeCentered(lastTapEyeEl);
         }, 200);
     }
+    function WindowFocus() {
+        ScheduleLifecycleRescan();
+    }
+    function WindowPageShow() {
+        ScheduleLifecycleRescan();
+    }
+    function DocVisibilityChange() {
+        if (!doc.hidden)
+            ScheduleLifecycleRescan();
+    }
+    function ScheduleLifecycleRescan() {
+        if (showAll || !hasStarted)
+            return;
+        let thisRescanIX = ++lifecycleRescanIX;
+        for (let to of [0, 75, 250, 750, 1500]) {
+            setTimeout(function () {
+                if (thisRescanIX != lifecycleRescanIX)
+                    return;
+                RecoverLifecycleImages();
+            }, to);
+        }
+    }
+    function RecoverLifecycleImages() {
+        if (showAll || !hasStarted || !doc.body || !doc.documentElement)
+            return;
+        AddClassOnce(doc.documentElement, 'wizmage-running');
+        wzmApplyPatternAssetVars(doc);
+        RehideBlockedElements();
+        RescanElements();
+        UpdateElRects();
+        AddClassOnce(doc.documentElement, 'wizmage-show-html');
+    }
     //keep track of which image-element mouse if over
     function mouseEntered(e) {
         DoHover(this, true, e);
@@ -656,30 +691,29 @@ function DoWin(win, winContentLoaded) {
                 let m = mutations[i], el = m.target;
                 if (m.type == 'attributes') {
                     if (m.attributeName == 'class') {
-                        if (el == document.documentElement) {
+                        if (el == doc.documentElement) {
                             //incase the website is messing with the <html> classes
-                            if (el.className.indexOf('wizmage-show-html') == -1)
+                            if (!HasClass(el, 'wizmage-show-html'))
                                 AddClass(el, 'wizmage-show-html');
-                            if (el.className.indexOf('wizmage-running') == -1)
+                            if (!HasClass(el, 'wizmage-running'))
                                 AddClass(el, 'wizmage-running');
                         }
-                        let oldHasLazy = m.oldValue != null && m.oldValue.indexOf('lazy') > -1, newHasLazy = el.className != null && typeof (el.className) == 'string' && el.className.indexOf('lazy') > -1, oldHasImg = el.wzmWizmaged && m.oldValue != null && m.oldValue.indexOf('img') > -1, newHasImg = el.wzmWizmaged && el.className != null && typeof (el.className) == 'string' && el.className.indexOf('img') > -1, addedBG = (!m.oldValue || m.oldValue.indexOf('_bg') == -1) && typeof (el.className) == 'string' && el.className.indexOf('_bg') > -1;
+                        RepairBlockedClasses(el);
+                        let className = GetClassName(el), oldHasLazy = m.oldValue != null && m.oldValue.indexOf('lazy') > -1, newHasLazy = className.indexOf('lazy') > -1, oldHasImg = el.wzmWizmaged && m.oldValue != null && m.oldValue.indexOf('img') > -1, newHasImg = el.wzmWizmaged && className.indexOf('img') > -1, addedBG = (!m.oldValue || m.oldValue.indexOf('_bg') == -1) && className.indexOf('_bg') > -1;
                         if (oldHasLazy != newHasLazy || (!oldHasImg && newHasImg) || addedBG)
                             DoElements(el, true);
                     }
-                    else if (m.attributeName == 'style' && el.style.backgroundImage && el.style.backgroundImage.indexOf('url(') > -1) {
-                        let oldBgImg, oldBgImgMatch;
-                        if (m.oldValue == null || !(oldBgImgMatch = /background(?:-image)?:[^;]*url\(['"]?(.+?)['"]?\)/.exec(m.oldValue)))
-                            oldBgImg = '';
-                        else
-                            oldBgImg = oldBgImgMatch[1];
-                        let imgUrlMatch = /url\(['"]?(.+?)['"]?\)/.exec(el.style.backgroundImage);
-                        if (imgUrlMatch && oldBgImg != imgUrlMatch[1]) {
+                    else if (m.attributeName == 'style') {
+                        let oldStyleUrl = ExtractCssUrl(m.oldValue || '');
+                        let newStyleUrl = ExtractCssUrl(el.getAttribute('style') || '');
+                        if (newStyleUrl && oldStyleUrl != newStyleUrl) {
                             setTimeout(() => DoElement.call(el), 0); //for sites that change the class just after, like linkedin
                         }
                     }
                     else if (m.attributeName == 'srcset' && el.tagName == 'SOURCE' && el.srcset && m.target.parentElement)
                         DoElement.call(m.target.parentElement);
+                    else if ((m.attributeName == 'src' || m.attributeName == 'srcset' || m.attributeName == 'sizes') && isImg(el))
+                        setTimeout(() => DoElement.call(el), 0);
                     else if (m.attributeName.indexOf('lazy') > -1)
                         DoElements(el, true);
                 }
@@ -690,7 +724,7 @@ function DoWin(win, winContentLoaded) {
                             continue;
                         if (el.tagName == 'IFRAME')
                             DoIframe(el);
-                        else if (el == document.documentElement)
+                        else if (el == doc.documentElement)
                             AddClass(el, 'wizmage-show-html wizmage-running');
                         else if (el.tagName == 'SOURCE') {
                             if (!showAll)
@@ -715,8 +749,8 @@ function DoWin(win, winContentLoaded) {
             return;
         }
         wzmApplyPatternAssetVars(doc);
-        //show body
-        AddClass(doc.documentElement, 'wizmage-show-html wizmage-running');
+        //Keep the document hidden until the first synchronous scan has applied blockers.
+        AddClassOnce(doc.documentElement, 'wizmage-running');
         //create eye
         eye.style.display = 'none';
         eye.style.width = eye.style.height = '16px';
@@ -741,6 +775,7 @@ function DoWin(win, winContentLoaded) {
         //observer/loop elements
         setupBody(doc.body);
         UpdateAllowSafeForPage();
+        AddClassOnce(doc.documentElement, 'wizmage-show-html');
         //CheckMousePosition every so often
         if (!intervalsStarted) {
             intervalsStarted = true;
@@ -763,6 +798,9 @@ function DoWin(win, winContentLoaded) {
             doc.addEventListener('touchcancel', DocTouchCancel, { capture: true, passive: false });
         }
         win.addEventListener('scroll', WindowScroll);
+        doc.addEventListener('visibilitychange', DocVisibilityChange);
+        win.addEventListener('focus', WindowFocus);
+        win.addEventListener('pageshow', WindowPageShow);
         //empty iframes
         let iframes = doc.getElementsByTagName('iframe');
         for (let i = 0, max = iframes.length; i < max; i++) {
@@ -937,6 +975,57 @@ function DoWin(win, winContentLoaded) {
         let bgHeight = parts.length > 1 ? CssLengthToPx(parts[1], height) : null;
         return (bgWidth != null && bgWidth <= _settings.maxSafe) || (bgHeight != null && bgHeight <= _settings.maxSafe);
     }
+    function ExtractCssUrl(value) {
+        let match = /\burl\(\s*(['"]?)(.*?)\1\s*\)/.exec(value || '');
+        return match ? match[2].trim() : '';
+    }
+    function ResolveImageUrl(url) {
+        if (!url)
+            return '';
+        if (url.startsWith('http') || url.startsWith('data:'))
+            return url;
+        try {
+            return new URL(url, win.location.href).href;
+        } catch (err) {
+            return url;
+        }
+    }
+    function GetStyleBackgroundImage(style) {
+        let bgimg = style && style.backgroundImage;
+        if (bgimg && bgimg != 'none' && ExtractCssUrl(bgimg))
+            return bgimg;
+        return '';
+    }
+    function GetInlineCustomPropertyImage(el) {
+        if (!el || !el.style)
+            return '';
+        for (let i = 0; i < el.style.length; i++) {
+            let prop = el.style[i];
+            if (prop && prop.indexOf('--') === 0 && prop.toLowerCase().indexOf('background') !== -1) {
+                let value = el.style.getPropertyValue(prop);
+                if (ExtractCssUrl(value))
+                    return value;
+            }
+        }
+        return '';
+    }
+    function GetElementBackground(el, compStyle) {
+        let bgimg = GetStyleBackgroundImage(compStyle);
+        if (bgimg)
+            return { image: bgimg, style: compStyle };
+        for (let pseudo of ['::before', '::after']) {
+            try {
+                let pseudoStyle = getComputedStyle(el, pseudo);
+                bgimg = GetStyleBackgroundImage(pseudoStyle);
+                if (bgimg)
+                    return { image: bgimg, style: pseudoStyle };
+            } catch (err) { /* ignore pseudo-element style failures */ }
+        }
+        bgimg = GetInlineCustomPropertyImage(el);
+        if (bgimg)
+            return { image: bgimg, style: compStyle };
+        return null;
+    }
     function SafeControlLimit() {
         return _settings.maxSafe + Math.min(8, Math.max(3, Math.ceil(_settings.maxSafe / 3)));
     }
@@ -982,7 +1071,7 @@ function DoWin(win, winContentLoaded) {
             }
             else if (SizeNeedsBlocking(elWidth, elHeight) //needs to be hidden - we need to catch 0 too, as sometimes images start off as zero
                 && !(el.src && (el.src.endsWith('.svg') || el.src.startsWith('data:image/svg+xml')))) {
-                let srcForCheck = el.src;
+                let srcForCheck = el.currentSrc || el.src;
                 if (srcForCheck && srcForCheck !== blankImg && el.wzmLastCheckedSrc !== srcForCheck) {
                     el.wzmLastCheckedSrc = srcForCheck;
                     el.wzmBad = false;
@@ -1001,7 +1090,7 @@ function DoWin(win, winContentLoaded) {
                         }
                     el.wzmHasTitleSetup = true;
                 }
-                imgUrl = el.src;
+                imgUrl = srcForCheck;
                 DoHidden(el, true);
                 DoImgSrc(el, true);
                 DoWizmageBG(el, true);
@@ -1013,8 +1102,7 @@ function DoWin(win, winContentLoaded) {
             }
         }
         else if (el.tagName == 'VIDEO') {
-            DoHidden(el, true);
-            MarkWizmaged(el, true);
+            BlockVideoAsMatchedFilter(el);
         }
         else if (el.tagName == 'PICTURE') {
             for (let i = 0; i < el.children.length; i++) {
@@ -1025,27 +1113,24 @@ function DoWin(win, winContentLoaded) {
             MarkWizmaged(el, true);
         }
         else {
-            let compStyle = getComputedStyle(el), bgimg = compStyle.backgroundImage, width = parseInt(compStyle.width) || el.clientWidth, height = parseInt(compStyle.height) || el.clientHeight; //as per https://developer.mozilla.org/en/docs/Web/API/window.getComputedStyle, getComputedStyle will return the 'used values' for width and height, which is always in px. We also use clientXXX, since sometimes compStyle returns NaN.
-            if (bgimg && bgimg != 'none'
+            let compStyle = getComputedStyle(el), bg = GetElementBackground(el, compStyle), bgimg = bg ? bg.image : '', bgUrl = ResolveImageUrl(ExtractCssUrl(bgimg)), width = parseInt(compStyle.width) || el.clientWidth, height = parseInt(compStyle.height) || el.clientHeight; //as per https://developer.mozilla.org/en/docs/Web/API/window.getComputedStyle, getComputedStyle will return the 'used values' for width and height, which is always in px. We also use clientXXX, since sometimes compStyle returns NaN.
+            if (bgUrl
                 && !el.wzmWizmaged
                 && SizeNeedsBlocking(width, height) /*we need to catch 0 too, as sometimes elements start off as zero*/
-                && !IsSafeBackgroundSize(compStyle, width, height)
+                && !IsSafeBackgroundSize(bg.style, width, height)
                 && !IsSafeControlBackground(el, width, height)
-                && bgimg.indexOf('url(') != -1
-                && !bgimg.startsWith(urlExtensionUrl)) {
-                imgUrl = bgimg;
-                if (el.wzmLastCheckedSrc != bgimg) {
+                && !bgUrl.startsWith(extensionUrl)) {
+                imgUrl = bgUrl;
+                if (el.wzmLastCheckedSrc != bgUrl) {
                     el.wzmBad = false;
                     el.wzmChecking = false;
                     el.wzmUnchecked = true;
                     el.wzmAlwaysBlock = false;
-                    el.wzmLastCheckedSrc = bgimg;
+                    el.wzmLastCheckedSrc = bgUrl;
                     let i = new Image();
                     i.owner = el;
                     i.onload = CheckBgImg;
-                    let urlMatch = /\burl\(["']?(.*?)["']?\)/.exec(bgimg);
-                    if (urlMatch)
-                        i.src = urlMatch[1];
+                    i.src = bgUrl;
                 }
                 DoWizmageBG(el, true);
                 DoMouseEventListeners(el, true);
@@ -1056,9 +1141,7 @@ function DoWin(win, winContentLoaded) {
         }
         if (imgUrl) {
             imgUrl = imgUrl.trim();
-            let m = /^url\("?'?(.+?)"?'?\)$/.exec(imgUrl);
-            if (m)
-                imgUrl = m[1];
+            imgUrl = ResolveImageUrl(ExtractCssUrl(imgUrl) || imgUrl);
             if (imgUrl.startsWith('http') || imgUrl.startsWith('data:')) {
                 SetChecking(el, true);
                 wzmAnalyzeImage(imgUrl, (r) => {
@@ -1192,6 +1275,45 @@ function DoWin(win, winContentLoaded) {
             el.wzmHidden = false;
         }
     }
+    function AddClassOnce(el, c) {
+        if (!HasClass(el, c))
+            AddClass(el, c);
+    }
+    function HasClass(el, c) {
+        return (' ' + GetClassName(el) + ' ').indexOf(' ' + c + ' ') > -1;
+    }
+    function GetClassName(el) {
+        return typeof el.className == 'string' ? el.className : '';
+    }
+    function BlockVideoAsMatchedFilter(el) {
+        if (!el)
+            return;
+        let rect = el.getBoundingClientRect();
+        if (!el.wzmSetVideoSize && !el.style.width && !el.style.height && rect.width > 0 && rect.height > 0) {
+            el.style.width = rect.width + 'px';
+            el.style.height = rect.height + 'px';
+            el.wzmSetVideoSize = true;
+        }
+        DoHidden(el, false);
+        if (el.wzmHasWizmageBG)
+            DoWizmageBG(el, false);
+        el.wzmBad = true;
+        el.wzmChecking = false;
+        el.wzmUnchecked = false;
+        el.wzmAlwaysBlock = false;
+        DoWizmageBG(el, true);
+        AddClassOnce(el, 'wizmage-locked');
+        DoMouseEventListeners(el, true);
+    }
+    function UnlockVideo(el) {
+        RemoveClass(el, 'wizmage-locked');
+        DoWizmageBG(el, false);
+        RemoveClass(el, 'wizmage-light');
+        if (el.wzmSetVideoSize) {
+            el.style.width = el.style.height = null;
+            el.wzmSetVideoSize = false;
+        }
+    }
     function RehideEl(el) {
         if (!el || !el.wzmBeenBlocked)
             return;
@@ -1211,8 +1333,7 @@ function DoWin(win, winContentLoaded) {
             el.wzmAllowSrc = null;
         }
         else if (el.tagName == 'VIDEO') {
-            DoHidden(el, true);
-            MarkWizmaged(el, true);
+            BlockVideoAsMatchedFilter(el);
         }
         else if (el.tagName == 'PICTURE') {
             for (let i = 0; i < el.children.length; i++) {
@@ -1227,6 +1348,42 @@ function DoWin(win, winContentLoaded) {
         }
         el.wzmTapState = 0;
         el.wzmLongPressShown = false;
+    }
+    function ShouldRemainBlocked(el) {
+        return !!(el && el.wzmBeenBlocked && (el.wzmBad || el.wzmChecking || el.wzmUnchecked || el.wzmAlwaysBlock));
+    }
+    function RepairBlockedClasses(el) {
+        if (!ShouldRemainBlocked(el))
+            return;
+        if (el.wzmHidden && !HasClass(el, 'wizmage-hide'))
+            AddClassOnce(el, 'wizmage-hide');
+        if (el.wzmHasWizmageBG && !HasClass(el, 'wizmage-pattern-bg-img')) {
+            el.wzmHasWizmageBG = false;
+            DoWizmageBG(el, true);
+        }
+        if (el.tagName == 'VIDEO' && el.wzmWizmaged && !HasClass(el, 'wizmage-locked'))
+            AddClassOnce(el, 'wizmage-locked');
+    }
+    function RehideBlockedElements() {
+        if (!elList.length)
+            return;
+        let copy = elList.slice();
+        for (let el of copy) {
+            if (!ShouldRemainBlocked(el))
+                continue;
+            RepairBlockedClasses(el);
+            if (isImg(el)) {
+                if (!el.wzmAllowSrc && (el.src != blankImg || el.srcset))
+                    RehideEl(el);
+            }
+            else if (el.tagName == 'VIDEO') {
+                if (!HasClass(el, 'wizmage-locked') || !HasClass(el, 'wizmage-pattern-bg-img'))
+                    BlockVideoAsMatchedFilter(el);
+            }
+            else if (!el.wzmWizmaged || (el.wzmHasWizmageBG && !HasClass(el, 'wizmage-pattern-bg-img'))) {
+                RehideEl(el);
+            }
+        }
     }
     function RehideAll() {
         if (showAll || !elList.length)
@@ -1611,7 +1768,7 @@ function DoWin(win, winContentLoaded) {
             RemoveClass(el, 'wizmage-light');
         }
         else if (el.tagName == 'VIDEO') {
-            MarkWizmaged(el, false);
+            UnlockVideo(el);
         }
         else if (el.tagName == 'PICTURE') {
             for (let i = 0; i < el.children.length; i++) {
