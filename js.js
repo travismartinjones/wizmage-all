@@ -710,7 +710,6 @@ function DoWin(win, winContentLoaded) {
                             if (!HasClass(el, 'wizmage-running'))
                                 AddClass(el, 'wizmage-running');
                         }
-                        RepairBlockedClasses(el);
                         let className = GetClassName(el), oldHasLazy = m.oldValue != null && m.oldValue.indexOf('lazy') > -1, newHasLazy = className.indexOf('lazy') > -1, oldHasImg = el.wzmWizmaged && m.oldValue != null && m.oldValue.indexOf('img') > -1, newHasImg = el.wzmWizmaged && className.indexOf('img') > -1, addedBG = (!m.oldValue || m.oldValue.indexOf('_bg') == -1) && className.indexOf('_bg') > -1;
                         if (oldHasLazy != newHasLazy || (!oldHasImg && newHasImg) || addedBG)
                             DoElements(el, true);
@@ -965,6 +964,35 @@ function DoWin(win, winContentLoaded) {
     function SizeNeedsBlocking(width, height) {
         return (width == 0 || width > _settings.maxSafe) && (height == 0 || height > _settings.maxSafe);
     }
+    function GetAttr(el, name) {
+        return el && el.getAttribute ? (el.getAttribute(name) || '') : '';
+    }
+    function GetProfileImageClues(el, imgUrl) {
+        let parts = [imgUrl || ''], node = el;
+        for (let i = 0; node && node != doc.body && node != doc.documentElement && i < 5; i++, node = node.parentElement) {
+            parts.push(
+                node.tagName || '',
+                node.id || '',
+                GetClassName(node),
+                GetAttr(node, 'alt'),
+                GetAttr(node, 'title'),
+                GetAttr(node, 'aria-label'),
+                GetAttr(node, 'role'),
+                GetAttr(node, 'data-testid'),
+                GetAttr(node, 'data-test'),
+                GetAttr(node, 'data-locator'),
+                GetAttr(node, 'src')
+            );
+        }
+        return parts.join(' ');
+    }
+    function IsLikelyProfileImage(el, imgUrl) {
+        let clues = GetProfileImageClues(el, imgUrl).toLowerCase();
+        return /\b(avatar|profile|portrait|headshot|recruiter|assistant|agent|chatbot|chatbox)\b|ai[\s_-]*recruit/.test(clues);
+    }
+    function ImageNeedsBlocking(el, width, height, imgUrl) {
+        return SizeNeedsBlocking(width, height) || IsLikelyProfileImage(el, imgUrl);
+    }
     function CssLengthToPx(value, base) {
         value = (value || '').trim().toLowerCase();
         if (!value || value == 'auto' || value == 'cover' || value == 'contain')
@@ -1081,36 +1109,38 @@ function DoWin(win, winContentLoaded) {
             if ((el.src == blankImg && !el.srcset) || (el.wzmAllowSrc && el.src == el.wzmAllowSrc.src && el.srcset == el.wzmAllowSrc.srcset)) { //was successfully replaced
                 DoHidden(el, false);
             }
-            else if (SizeNeedsBlocking(elWidth, elHeight) //needs to be hidden - we need to catch 0 too, as sometimes images start off as zero
-                && !(el.src && (el.src.endsWith('.svg') || el.src.startsWith('data:image/svg+xml')))) {
+            else {
                 let srcForCheck = el.currentSrc || el.src;
-                if (srcForCheck && srcForCheck !== blankImg && el.wzmLastCheckedSrc !== srcForCheck) {
-                    el.wzmLastCheckedSrc = srcForCheck;
-                    el.wzmBad = false;
-                    el.wzmChecking = false;
-                    el.wzmUnchecked = true;
-                    el.wzmAlwaysBlock = false;
+                if (ImageNeedsBlocking(el, elWidth, elHeight, srcForCheck) //needs to be hidden - we need to catch 0 too, as sometimes images start off as zero
+                    && !(el.src && (el.src.endsWith('.svg') || el.src.startsWith('data:image/svg+xml')))) {
+                    if (srcForCheck && srcForCheck !== blankImg && el.wzmLastCheckedSrc !== srcForCheck) {
+                        el.wzmLastCheckedSrc = srcForCheck;
+                        el.wzmBad = false;
+                        el.wzmChecking = false;
+                        el.wzmUnchecked = true;
+                        el.wzmAlwaysBlock = false;
+                    }
+                    DoMouseEventListeners(el, true);
+                    if (!el.wzmHasTitleSetup) {
+                        if (!el.title)
+                            if (el.alt)
+                                el.title = el.alt;
+                            else {
+                                el.src.match(/([-\w]+)(\.[\w]+)?$/i);
+                                el.title = RegExp.$1;
+                            }
+                        el.wzmHasTitleSetup = true;
+                    }
+                    imgUrl = srcForCheck;
+                    DoHidden(el, true);
+                    DoImgSrc(el, true);
+                    DoWizmageBG(el, true);
+                    el.src = blankImg;
                 }
-                DoMouseEventListeners(el, true);
-                if (!el.wzmHasTitleSetup) {
-                    if (!el.title)
-                        if (el.alt)
-                            el.title = el.alt;
-                        else {
-                            el.src.match(/([-\w]+)(\.[\w]+)?$/i);
-                            el.title = RegExp.$1;
-                        }
-                    el.wzmHasTitleSetup = true;
+                else { //small image
+                    MarkWizmaged(el, false); //maybe !el.complete initially
+                    DoHidden(el, false);
                 }
-                imgUrl = srcForCheck;
-                DoHidden(el, true);
-                DoImgSrc(el, true);
-                DoWizmageBG(el, true);
-                el.src = blankImg;
-            }
-            else { //small image
-                MarkWizmaged(el, false); //maybe !el.complete initially
-                DoHidden(el, false);
             }
         }
         else if (el.tagName == 'VIDEO') {
@@ -1126,11 +1156,12 @@ function DoWin(win, winContentLoaded) {
         }
         else {
             let compStyle = getComputedStyle(el), bg = GetElementBackground(el, compStyle), bgimg = bg ? bg.image : '', bgUrl = ResolveImageUrl(ExtractCssUrl(bgimg)), width = parseInt(compStyle.width) || el.clientWidth, height = parseInt(compStyle.height) || el.clientHeight; //as per https://developer.mozilla.org/en/docs/Web/API/window.getComputedStyle, getComputedStyle will return the 'used values' for width and height, which is always in px. We also use clientXXX, since sometimes compStyle returns NaN.
+            let likelyProfileImage = IsLikelyProfileImage(el, bgUrl);
             if (bgUrl
                 && !el.wzmWizmaged
-                && SizeNeedsBlocking(width, height) /*we need to catch 0 too, as sometimes elements start off as zero*/
-                && !IsSafeBackgroundSize(bg.style, width, height)
-                && !IsSafeControlBackground(el, width, height)
+                && (SizeNeedsBlocking(width, height) || likelyProfileImage) /*we need to catch 0 too, as sometimes elements start off as zero*/
+                && (likelyProfileImage || !IsSafeBackgroundSize(bg.style, width, height))
+                && (likelyProfileImage || !IsSafeControlBackground(el, width, height))
                 && !bgUrl.startsWith(extensionUrl)) {
                 imgUrl = bgUrl;
                 if (el.wzmLastCheckedSrc != bgUrl) {
@@ -1141,6 +1172,7 @@ function DoWin(win, winContentLoaded) {
                     el.wzmLastCheckedSrc = bgUrl;
                     let i = new Image();
                     i.owner = el;
+                    i.wzmLikelyProfileImage = likelyProfileImage;
                     i.onload = CheckBgImg;
                     i.src = bgUrl;
                 }
@@ -1199,7 +1231,7 @@ function DoWin(win, winContentLoaded) {
             let compStyle = getComputedStyle(el.owner);
             let width = parseInt(compStyle.width) || el.owner.clientWidth;
             let height = parseInt(compStyle.height) || el.owner.clientHeight;
-            if (IsSafeRenderedSize(el.width, el.height) || IsSafeControlBackground(el.owner, width, height))
+            if (!el.wzmLikelyProfileImage && (IsSafeRenderedSize(el.width, el.height) || IsSafeControlBackground(el.owner, width, height)))
                 ShowEl.call(el.owner);
         }
         this.onload = null;
@@ -1223,6 +1255,7 @@ function DoWin(win, winContentLoaded) {
         if (toggle && !el.wzmHasWizmageBG) {
             let shade = el.wzmBad ? 5 : (el.wzmChecking ? 2 : (el.wzmUnchecked ? 1 : 7));
             el.wzmShade = shade;
+            ApplyWizmageBGAttrs(el, shade);
             AddClass(el, 'wizmage-pattern-bg-img wizmage-cls wizmage-shade-' + shade);
             if (el.wzmChecking)
                 AddClass(el, 'wizmage-checking');
@@ -1233,6 +1266,7 @@ function DoWin(win, winContentLoaded) {
             MarkWizmaged(el, true);
         }
         else if (!toggle && el.wzmHasWizmageBG) {
+            ClearWizmageBGAttrs(el);
             RemoveClass(el, 'wizmage-pattern-bg-img');
             RemoveClass(el, 'wizmage-cls');
             RemoveClass(el, 'wizmage-shade-' + el.wzmShade);
@@ -1240,6 +1274,12 @@ function DoWin(win, winContentLoaded) {
             RemoveClass(el, 'wizmage-checking');
             el.wzmHasWizmageBG = false;
             MarkWizmaged(el, false);
+        }
+        else if (toggle && el.wzmHasWizmageBG) {
+            ApplyWizmageBGAttrs(el, el.wzmShade);
+        }
+        else if (!toggle) {
+            ClearWizmageBGAttrs(el);
         }
     }
     function SetChecking(el, toggle) {
@@ -1279,12 +1319,20 @@ function DoWin(win, winContentLoaded) {
     }
     function DoHidden(el, toggle) {
         if (toggle && !el.wzmHidden) {
+            SetWzmAttr(el, 'data-wzm-hide', '1');
             AddClass(el, 'wizmage-hide');
             el.wzmHidden = true;
         }
         else if (!toggle && el.wzmHidden) {
+            RemoveWzmAttr(el, 'data-wzm-hide');
             RemoveClass(el, 'wizmage-hide');
             el.wzmHidden = false;
+        }
+        else if (toggle) {
+            SetWzmAttr(el, 'data-wzm-hide', '1');
+        }
+        else {
+            RemoveWzmAttr(el, 'data-wzm-hide');
         }
     }
     function AddClassOnce(el, c) {
@@ -1297,6 +1345,40 @@ function DoWin(win, winContentLoaded) {
     function GetClassName(el) {
         return typeof el.className == 'string' ? el.className : '';
     }
+    function SetWzmAttr(el, name, value) {
+        if (el && el.setAttribute && el.getAttribute(name) !== value)
+            el.setAttribute(name, value);
+    }
+    function RemoveWzmAttr(el, name) {
+        if (el && el.removeAttribute && el.hasAttribute(name))
+            el.removeAttribute(name);
+    }
+    function ApplyWizmageBGAttrs(el, shade) {
+        if (!el)
+            return;
+        SetWzmAttr(el, 'data-wzm-pattern-bg-img', '1');
+        SetWzmAttr(el, 'data-wzm-shade', String(shade != null ? shade : (el.wzmShade || 0)));
+        if (el.wzmChecking)
+            SetWzmAttr(el, 'data-wzm-checking', '1');
+        else
+            RemoveWzmAttr(el, 'data-wzm-checking');
+        if (el.wzmAlwaysBlock)
+            SetWzmAttr(el, 'data-wzm-always', '1');
+        else
+            RemoveWzmAttr(el, 'data-wzm-always');
+    }
+    function ClearWizmageBGAttrs(el) {
+        RemoveWzmAttr(el, 'data-wzm-pattern-bg-img');
+        RemoveWzmAttr(el, 'data-wzm-shade');
+        RemoveWzmAttr(el, 'data-wzm-checking');
+        RemoveWzmAttr(el, 'data-wzm-always');
+    }
+    function HasWizmageBGApplied(el) {
+        return HasClass(el, 'wizmage-pattern-bg-img') || (el && el.getAttribute && el.getAttribute('data-wzm-pattern-bg-img') == '1');
+    }
+    function HasWizmageLockApplied(el) {
+        return HasClass(el, 'wizmage-locked') || (el && el.getAttribute && el.getAttribute('data-wzm-locked') == '1');
+    }
     function BlockVideoAsMatchedFilter(el) {
         if (!el)
             return;
@@ -1307,18 +1389,30 @@ function DoWin(win, winContentLoaded) {
             el.wzmSetVideoSize = true;
         }
         DoHidden(el, false);
-        if (el.wzmHasWizmageBG)
-            DoWizmageBG(el, false);
-        el.wzmBad = true;
-        el.wzmChecking = false;
-        el.wzmUnchecked = false;
-        el.wzmAlwaysBlock = false;
-        DoWizmageBG(el, true);
-        AddClassOnce(el, 'wizmage-locked');
+        let alreadyBlocked = el.wzmHasWizmageBG && el.wzmBad === true && !el.wzmChecking && !el.wzmUnchecked && !el.wzmAlwaysBlock;
+        if (!alreadyBlocked) {
+            if (el.wzmHasWizmageBG)
+                DoWizmageBG(el, false);
+            el.wzmBad = true;
+            el.wzmChecking = false;
+            el.wzmUnchecked = false;
+            el.wzmAlwaysBlock = false;
+            DoWizmageBG(el, true);
+        }
+        else {
+            ApplyWizmageBGAttrs(el, el.wzmShade);
+        }
+        SetWzmAttr(el, 'data-wzm-locked', '1');
+        if (!el.wzmVideoLockClassApplied) {
+            AddClassOnce(el, 'wizmage-locked');
+            el.wzmVideoLockClassApplied = true;
+        }
         DoMouseEventListeners(el, true);
     }
     function UnlockVideo(el) {
+        RemoveWzmAttr(el, 'data-wzm-locked');
         RemoveClass(el, 'wizmage-locked');
+        el.wzmVideoLockClassApplied = false;
         DoWizmageBG(el, false);
         RemoveClass(el, 'wizmage-light');
         if (el.wzmSetVideoSize) {
@@ -1367,14 +1461,12 @@ function DoWin(win, winContentLoaded) {
     function RepairBlockedClasses(el) {
         if (!ShouldRemainBlocked(el))
             return;
-        if (el.wzmHidden && !HasClass(el, 'wizmage-hide'))
-            AddClassOnce(el, 'wizmage-hide');
-        if (el.wzmHasWizmageBG && !HasClass(el, 'wizmage-pattern-bg-img')) {
-            el.wzmHasWizmageBG = false;
-            DoWizmageBG(el, true);
-        }
-        if (el.tagName == 'VIDEO' && el.wzmWizmaged && !HasClass(el, 'wizmage-locked'))
-            AddClassOnce(el, 'wizmage-locked');
+        if (el.wzmHidden)
+            SetWzmAttr(el, 'data-wzm-hide', '1');
+        if (el.wzmHasWizmageBG)
+            ApplyWizmageBGAttrs(el, el.wzmShade);
+        if (el.tagName == 'VIDEO' && el.wzmWizmaged)
+            SetWzmAttr(el, 'data-wzm-locked', '1');
     }
     function RehideBlockedElements() {
         if (!elList.length)
@@ -1389,10 +1481,10 @@ function DoWin(win, winContentLoaded) {
                     RehideEl(el);
             }
             else if (el.tagName == 'VIDEO') {
-                if (!HasClass(el, 'wizmage-locked') || !HasClass(el, 'wizmage-pattern-bg-img'))
+                if (!HasWizmageLockApplied(el) || !HasWizmageBGApplied(el))
                     BlockVideoAsMatchedFilter(el);
             }
-            else if (!el.wzmWizmaged || (el.wzmHasWizmageBG && !HasClass(el, 'wizmage-pattern-bg-img'))) {
+            else if (!el.wzmWizmaged || (el.wzmHasWizmageBG && !HasWizmageBGApplied(el))) {
                 RehideEl(el);
             }
         }
@@ -1594,16 +1686,20 @@ function DoWin(win, winContentLoaded) {
                 };
                 setupEye();
             }
-            else
+            else {
+                SetWzmAttr(el, 'data-wzm-light', '1');
                 AddClass(el, 'wizmage-light');
+            }
             DoHoverVisualClearTimer(el, true);
             el.wzmHasHoverVisual = true;
         }
         else if (!toggle && el.wzmHasHoverVisual) {
             if (!_settings.noEye)
                 eye.style.display = 'none';
-            else
+            else {
+                RemoveWzmAttr(el, 'data-wzm-light');
                 RemoveClass(el, 'wizmage-light');
+            }
             DoHoverVisualClearTimer(el, false);
             el.wzmHasHoverVisual = false;
         }
@@ -1612,10 +1708,12 @@ function DoWin(win, winContentLoaded) {
         if (!el || !el.wzmWizmaged)
             return;
         if (_settings.noEye) {
+            SetWzmAttr(el, 'data-wzm-light', '1');
             AddClass(el, 'wizmage-light');
             return;
         }
         if (lastTapEyeEl && lastTapEyeEl != el) {
+            RemoveWzmAttr(lastTapEyeEl, 'data-wzm-light');
             RemoveClass(lastTapEyeEl, 'wizmage-light');
             lastTapEyeEl.wzmTapState = 0;
             lastTapEyeEl.wzmLastShownAt = 0;
@@ -1777,6 +1875,7 @@ function DoWin(win, winContentLoaded) {
             DoImgSrc(el, false);
             el.wzmAllowSrc = { src: el.src, srcset: el.srcset };
             DoWizmageBG(el, false);
+            RemoveWzmAttr(el, 'data-wzm-light');
             RemoveClass(el, 'wizmage-light');
         }
         else if (el.tagName == 'VIDEO') {
@@ -1789,10 +1888,12 @@ function DoWin(win, winContentLoaded) {
                     DoImgSrc(node, false);
             }
             MarkWizmaged(el, false);
+            RemoveWzmAttr(el, 'data-wzm-light');
             RemoveClass(el, 'wizmage-light');
         }
         else {
             DoWizmageBG(el, false);
+            RemoveWzmAttr(el, 'data-wzm-light');
             RemoveClass(el, 'wizmage-light');
         }
         el.wzmAlwaysBlock = false;
@@ -1808,11 +1909,21 @@ function DoWin(win, winContentLoaded) {
     }
 }
 function RemoveClass(el, n) {
+    let names = (n || '').split(/\s+/).filter(Boolean);
+    if (el.classList && names.length) {
+        el.classList.remove(...names);
+        return;
+    }
     let oldClass = el.className, newClass = el.className.replace(new RegExp('\\b' + n + '\\b'), '');
     if (oldClass != newClass) {
         el.className = newClass;
     }
 }
 function AddClass(el, c) {
+    let names = (c || '').split(/\s+/).filter(Boolean);
+    if (el.classList && names.length) {
+        el.classList.add(...names);
+        return;
+    }
     el.className += ' ' + c;
 }
