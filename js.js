@@ -294,8 +294,10 @@ window.addEventListener('DOMContentLoaded', function () { contentLoaded = true; 
 let settingsResolved = false;
 let settingsApplied = false;
 let settingsFallback = setTimeout(function () {
-    if (!settingsResolved && document.documentElement)
+    if (!settingsResolved && document.documentElement) {
         AddClass(document.documentElement, 'wizmage-show-html');
+        applySettingsAndStart(wzmDefaultSettings());
+    }
 }, 1500);
 function wzmDefaultSettings() {
     return {
@@ -561,6 +563,7 @@ function DoWin(win, winContentLoaded) {
             doc.removeEventListener('visibilitychange', DocVisibilityChange);
             win.removeEventListener('scroll', WindowScroll);
             win.removeEventListener('focus', WindowFocus);
+            win.removeEventListener('load', WindowLoad);
             win.removeEventListener('pageshow', WindowPageShow);
             if (wzmIsIOS) {
                 doc.removeEventListener('touchstart', DocTouchStart, true);
@@ -606,7 +609,7 @@ function DoWin(win, winContentLoaded) {
         Start();
     };
     //start, or register start
-    if (winContentLoaded)
+    if (winContentLoaded || doc.readyState != 'loading')
         Start();
     else
         win.addEventListener('DOMContentLoaded', Start);
@@ -646,6 +649,9 @@ function DoWin(win, winContentLoaded) {
         }, 200);
     }
     function WindowFocus() {
+        ScheduleLifecycleRescan();
+    }
+    function WindowLoad() {
         ScheduleLifecycleRescan();
     }
     function WindowPageShow() {
@@ -751,11 +757,17 @@ function DoWin(win, winContentLoaded) {
         observers.push(observer);
     }
     //process all elements with background-image, and observe mutations for new ones
+    function IsStandaloneMediaDocument() {
+        if (win != top || !doc.body || doc.body.children.length != 1)
+            return false;
+        let only = doc.body.children[0];
+        return only && /^(IMG|VIDEO|PICTURE|OBJECT|EMBED)$/.test(only.tagName) && !only.children.length;
+    }
     function Start() {
         if (hasStarted)
             return;
         //when viewing an image (not a webpage). iFrames, or pdfs may not have body/head
-        if (!doc.body || !doc.head || !doc.documentElement || (win == top && doc.body.children.length == 1 && !doc.body.children[0].children.length)) {
+        if (!doc.body || !doc.head || !doc.documentElement || IsStandaloneMediaDocument()) {
             ShowImages();
             return;
         }
@@ -811,6 +823,7 @@ function DoWin(win, winContentLoaded) {
         win.addEventListener('scroll', WindowScroll);
         doc.addEventListener('visibilitychange', DocVisibilityChange);
         win.addEventListener('focus', WindowFocus);
+        win.addEventListener('load', WindowLoad);
         win.addEventListener('pageshow', WindowPageShow);
         //empty iframes
         let iframes = doc.getElementsByTagName('iframe');
@@ -847,6 +860,9 @@ function DoWin(win, winContentLoaded) {
             if (!el || !el.wzmBeenBlocked)
                 continue;
             el.wzmLastCheckedSrc = null;
+            el.wzmNaturalSafeSrc = null;
+            el.wzmNaturalCheckingSrc = null;
+            el.wzmForceBgBlockSrc = null;
             el.wzmChecking = false;
             el.wzmBad = false;
             el.wzmUnchecked = true;
@@ -1157,10 +1173,13 @@ function DoWin(win, winContentLoaded) {
         else {
             let compStyle = getComputedStyle(el), bg = GetElementBackground(el, compStyle), bgimg = bg ? bg.image : '', bgUrl = ResolveImageUrl(ExtractCssUrl(bgimg)), width = parseInt(compStyle.width) || el.clientWidth, height = parseInt(compStyle.height) || el.clientHeight; //as per https://developer.mozilla.org/en/docs/Web/API/window.getComputedStyle, getComputedStyle will return the 'used values' for width and height, which is always in px. We also use clientXXX, since sometimes compStyle returns NaN.
             let likelyProfileImage = IsLikelyProfileImage(el, bgUrl);
+            let forceNaturalBg = el.wzmForceBgBlockSrc == bgUrl;
+            if (bgUrl && !forceNaturalBg && !likelyProfileImage && !SizeNeedsBlocking(width, height) && !bgUrl.startsWith(extensionUrl))
+                QueueBgNaturalSizeCheck(el, bgUrl, width, height);
             if (bgUrl
-                && !el.wzmWizmaged
-                && (SizeNeedsBlocking(width, height) || likelyProfileImage) /*we need to catch 0 too, as sometimes elements start off as zero*/
-                && (likelyProfileImage || !IsSafeBackgroundSize(bg.style, width, height))
+                && NeedsBackgroundProcessing(el, bgUrl)
+                && (forceNaturalBg || SizeNeedsBlocking(width, height) || likelyProfileImage) /*we need to catch 0 too, as sometimes elements start off as zero*/
+                && (forceNaturalBg || likelyProfileImage || !IsSafeBackgroundSize(bg.style, width, height))
                 && (likelyProfileImage || !IsSafeControlBackground(el, width, height))
                 && !bgUrl.startsWith(extensionUrl)) {
                 imgUrl = bgUrl;
@@ -1170,6 +1189,7 @@ function DoWin(win, winContentLoaded) {
                     el.wzmUnchecked = true;
                     el.wzmAlwaysBlock = false;
                     el.wzmLastCheckedSrc = bgUrl;
+                    el.wzmForceBgBlockSrc = null;
                     let i = new Image();
                     i.owner = el;
                     i.wzmLikelyProfileImage = likelyProfileImage;
@@ -1225,6 +1245,56 @@ function DoWin(win, winContentLoaded) {
             }
         }
     }
+    function ShouldCheckBgNaturalSize(el, bgUrl, width, height) {
+        if (!bgUrl || el.wzmNaturalSafeSrc == bgUrl || el.wzmNaturalCheckingSrc == bgUrl)
+            return false;
+        if (/\.(svg)([?#].*)?$/i.test(bgUrl) || bgUrl.startsWith('data:image/svg+xml'))
+            return false;
+        if (IsSafeControlBackground(el, width, height))
+            return false;
+        return width == 0 || height == 0 || width >= 96 || height >= 96 || (width * height) >= 4096;
+    }
+    function QueueBgNaturalSizeCheck(el, bgUrl, width, height) {
+        if (!ShouldCheckBgNaturalSize(el, bgUrl, width, height))
+            return;
+        el.wzmNaturalCheckingSrc = bgUrl;
+        let i = new Image();
+        i.owner = el;
+        i.wzmBgUrl = bgUrl;
+        i.onload = CheckBgNaturalImg;
+        i.onerror = function () {
+            if (this.owner && this.owner.wzmNaturalCheckingSrc == this.wzmBgUrl) {
+                this.owner.wzmNaturalCheckingSrc = null;
+                this.owner.wzmNaturalCheckImg = null;
+            }
+            this.onload = null;
+            this.onerror = null;
+        };
+        el.wzmNaturalCheckImg = i;
+        i.src = bgUrl;
+    }
+    function CheckBgNaturalImg() {
+        let el = this.owner, bgUrl = this.wzmBgUrl;
+        if (!el) {
+            this.onload = null;
+            this.onerror = null;
+            return;
+        }
+        if (el.wzmNaturalCheckingSrc == bgUrl)
+            el.wzmNaturalCheckingSrc = null;
+        if (el.wzmNaturalCheckImg == this)
+            el.wzmNaturalCheckImg = null;
+        if (IsSafeRenderedSize(this.width, this.height)) {
+            el.wzmNaturalSafeSrc = bgUrl;
+            this.onload = null;
+            this.onerror = null;
+            return;
+        }
+        el.wzmForceBgBlockSrc = bgUrl;
+        DoElement.call(el);
+        this.onload = null;
+        this.onerror = null;
+    }
     function CheckBgImg() {
         let el = this;
         if (el.owner) {
@@ -1251,11 +1321,64 @@ function DoWin(win, winContentLoaded) {
         else
             el.wzmWizmaged = false;
     }
+    let wizmageBGInlineProps = ['background-image', 'background-repeat', 'background-size', 'background-position'];
+    function GetWizmageBGPatternUrl(el, shade) {
+        shade = Math.max(0, Math.min(7, Number(shade) || 0));
+        let light = el && (el.wzmChecking || el.wzmAlwaysBlock || HasClass(el, 'wizmage-light') || (el.getAttribute && el.getAttribute('data-wzm-light') == '1'));
+        let file = el && el.wzmAlwaysBlock ? 'pattern-light0.png' : (el && el.wzmChecking ? 'pattern-light2.png' : ((light ? 'pattern-light' : 'pattern') + shade + '.png'));
+        return 'url("' + wzmGetURL(file) + '")';
+    }
+    function SaveWizmageInlineBGProp(el, prop) {
+        if (!el.wzmSavedInlineBG)
+            el.wzmSavedInlineBG = {};
+        if (prop in el.wzmSavedInlineBG)
+            return;
+        el.wzmSavedInlineBG[prop] = {
+            value: el.style.getPropertyValue(prop),
+            priority: el.style.getPropertyPriority(prop)
+        };
+    }
+    function ApplyWizmageBGInline(el, shade) {
+        if (!el || !el.style)
+            return;
+        for (let prop of wizmageBGInlineProps)
+            SaveWizmageInlineBGProp(el, prop);
+        el.style.setProperty('background-image', GetWizmageBGPatternUrl(el, shade), 'important');
+        el.style.setProperty('background-repeat', 'repeat', 'important');
+        el.style.setProperty('background-size', 'auto', 'important');
+        el.style.setProperty('background-position', '0 0', 'important');
+        el.wzmHasInlineWizmageBG = true;
+    }
+    function ClearWizmageBGInline(el) {
+        if (!el || !el.style || (!el.wzmHasInlineWizmageBG && !el.wzmSavedInlineBG))
+            return;
+        let saved = el.wzmSavedInlineBG || {};
+        for (let prop of wizmageBGInlineProps) {
+            let old = saved[prop];
+            if (old && old.value)
+                el.style.setProperty(prop, old.value, old.priority || '');
+            else
+                el.style.removeProperty(prop);
+        }
+        el.wzmSavedInlineBG = null;
+        el.wzmHasInlineWizmageBG = false;
+    }
+    function HasWizmageBGRendered(el) {
+        if (!el || !el.wzmHasWizmageBG)
+            return false;
+        let bg = GetElementBackground(el, getComputedStyle(el));
+        let bgUrl = ResolveImageUrl(ExtractCssUrl(bg ? bg.image : ''));
+        return !!(bgUrl && bgUrl.startsWith(extensionUrl));
+    }
+    function NeedsBackgroundProcessing(el, bgUrl) {
+        return !el.wzmWizmaged || el.wzmLastCheckedSrc != bgUrl || (el.wzmHasWizmageBG && !HasWizmageBGRendered(el));
+    }
     function DoWizmageBG(el, toggle) {
         if (toggle && !el.wzmHasWizmageBG) {
             let shade = el.wzmBad ? 5 : (el.wzmChecking ? 2 : (el.wzmUnchecked ? 1 : 7));
             el.wzmShade = shade;
             ApplyWizmageBGAttrs(el, shade);
+            ApplyWizmageBGInline(el, shade);
             AddClass(el, 'wizmage-pattern-bg-img wizmage-cls wizmage-shade-' + shade);
             if (el.wzmChecking)
                 AddClass(el, 'wizmage-checking');
@@ -1267,6 +1390,7 @@ function DoWin(win, winContentLoaded) {
         }
         else if (!toggle && el.wzmHasWizmageBG) {
             ClearWizmageBGAttrs(el);
+            ClearWizmageBGInline(el);
             RemoveClass(el, 'wizmage-pattern-bg-img');
             RemoveClass(el, 'wizmage-cls');
             RemoveClass(el, 'wizmage-shade-' + el.wzmShade);
@@ -1277,9 +1401,11 @@ function DoWin(win, winContentLoaded) {
         }
         else if (toggle && el.wzmHasWizmageBG) {
             ApplyWizmageBGAttrs(el, el.wzmShade);
+            ApplyWizmageBGInline(el, el.wzmShade);
         }
         else if (!toggle) {
             ClearWizmageBGAttrs(el);
+            ClearWizmageBGInline(el);
         }
     }
     function SetChecking(el, toggle) {
@@ -1464,7 +1590,7 @@ function DoWin(win, winContentLoaded) {
         if (el.wzmHidden)
             SetWzmAttr(el, 'data-wzm-hide', '1');
         if (el.wzmHasWizmageBG)
-            ApplyWizmageBGAttrs(el, el.wzmShade);
+            DoWizmageBG(el, true);
         if (el.tagName == 'VIDEO' && el.wzmWizmaged)
             SetWzmAttr(el, 'data-wzm-locked', '1');
     }
@@ -1484,7 +1610,7 @@ function DoWin(win, winContentLoaded) {
                 if (!HasWizmageLockApplied(el) || !HasWizmageBGApplied(el))
                     BlockVideoAsMatchedFilter(el);
             }
-            else if (!el.wzmWizmaged || (el.wzmHasWizmageBG && !HasWizmageBGApplied(el))) {
+            else if (!el.wzmWizmaged || (el.wzmHasWizmageBG && (!HasWizmageBGApplied(el) || !HasWizmageBGRendered(el)))) {
                 RehideEl(el);
             }
         }
@@ -1689,6 +1815,7 @@ function DoWin(win, winContentLoaded) {
             else {
                 SetWzmAttr(el, 'data-wzm-light', '1');
                 AddClass(el, 'wizmage-light');
+                ApplyWizmageBGInline(el, el.wzmShade);
             }
             DoHoverVisualClearTimer(el, true);
             el.wzmHasHoverVisual = true;
@@ -1699,6 +1826,7 @@ function DoWin(win, winContentLoaded) {
             else {
                 RemoveWzmAttr(el, 'data-wzm-light');
                 RemoveClass(el, 'wizmage-light');
+                ApplyWizmageBGInline(el, el.wzmShade);
             }
             DoHoverVisualClearTimer(el, false);
             el.wzmHasHoverVisual = false;
@@ -1710,6 +1838,7 @@ function DoWin(win, winContentLoaded) {
         if (_settings.noEye) {
             SetWzmAttr(el, 'data-wzm-light', '1');
             AddClass(el, 'wizmage-light');
+            ApplyWizmageBGInline(el, el.wzmShade);
             return;
         }
         if (lastTapEyeEl && lastTapEyeEl != el) {
