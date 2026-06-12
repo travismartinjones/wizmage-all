@@ -1,6 +1,10 @@
-:root:not(.wizmage-show-html) { opacity: 0 !important; background: white !important; }
+:root:not(.wizmage-show-html) img,
+:root:not(.wizmage-show-html) picture,
+:root:not(.wizmage-show-html) video,
+:root:not(.wizmage-show-html) object,
+:root:not(.wizmage-show-html) embed { opacity: 0 !important; }
 
-:root.wizmage-running > body { background-image: none !important; }
+:root:not(.wizmage-show-html) * { background-image: none !important; }
 
 .wizmage-hide { opacity: 0 !important; }
 
@@ -50,7 +54,6 @@
 .wizmage-pattern-bg-img.wizmage-cls.wizmage-checking { background-image: var(--wzm-pattern-light-2, url(pattern-light2.png)) !important; }
 .wizmage-pattern-bg-img.wizmage-cls.wizmage-checking.wizmage-light { background-image: var(--wzm-pattern-light-2, url(pattern-light2.png)) !important; }
 
-html.wizmage-running div:before, html.wizmage-running div:after { background-image: none !important; }
 html.wizmage-running .wizmage-pattern-bg-img:before,
 html.wizmage-running .wizmage-pattern-bg-img:after { background-image: none !important; }
 

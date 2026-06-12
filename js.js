@@ -293,9 +293,14 @@ window.addEventListener('DOMContentLoaded', function () { contentLoaded = true; 
 //start by seeing if is active or is paused etc.
 let settingsResolved = false;
 let settingsApplied = false;
+function wzmRevealDocumentElement() {
+    if (document.documentElement)
+        AddClass(document.documentElement, 'wizmage-show-html');
+}
+let startupRevealFallback = setTimeout(wzmRevealDocumentElement, 2500);
 let settingsFallback = setTimeout(function () {
     if (!settingsResolved && document.documentElement) {
-        AddClass(document.documentElement, 'wizmage-show-html');
+        wzmRevealDocumentElement();
         applySettingsAndStart(wzmDefaultSettings());
     }
 }, 1500);
@@ -389,7 +394,7 @@ function applySettingsAndStart(s) {
     else {
         if (!document.documentElement)
             return;
-        AddClass(document.documentElement, 'wizmage-show-html');
+        wzmRevealDocumentElement();
         let observer = new MutationObserver(function (mutations) {
             for (let i = 0; i < mutations.length; i++) {
                 let m = mutations[i];
@@ -772,7 +777,7 @@ function DoWin(win, winContentLoaded) {
             return;
         }
         wzmApplyPatternAssetVars(doc);
-        //Keep the document hidden until the first synchronous scan has applied blockers.
+        // The stylesheet masks media until the first synchronous scan has applied blockers.
         AddClassOnce(doc.documentElement, 'wizmage-running');
         //create eye
         eye.style.display = 'none';
@@ -1006,7 +1011,46 @@ function DoWin(win, winContentLoaded) {
         let clues = GetProfileImageClues(el, imgUrl).toLowerCase();
         return /\b(avatar|profile|portrait|headshot|recruiter|assistant|agent|chatbot|chatbox)\b|ai[\s_-]*recruit/.test(clues);
     }
+    function IsLikelyPageChromeRegion(el, clues) {
+        if (!el || !el.closest || el == doc.body || el == doc.documentElement)
+            return false;
+        if (el.closest('header,nav,[role="banner"],[role="navigation"],.header,.site-header,.app-header,.navbar,.nav-bar,.topbar,.toolbar,.menu,.main-menu,.mobile-menu,.drawer,.offcanvas'))
+            return true;
+        return /\b(header|site-header|app-header|navbar|nav-bar|navigation|menubar|menu|main-menu|mobile-menu|drawer|offcanvas|topbar|toolbar|masthead)\b/.test(clues || '');
+    }
+    function GetElementText(el) {
+        if (!el)
+            return '';
+        return ((el.innerText || el.textContent || '') + '').replace(/\s+/g, ' ').trim().toLowerCase();
+    }
+    function IsLikelyStructuralPageChrome(el, clues) {
+        if (!IsLikelyPageChromeRegion(el, clues))
+            return false;
+        let text = GetElementText(el);
+        if (/\b(dashboard|my apps|results|files|partner marketplace|marketplace|support|activate kit|shop all kits|sign out|manage account)\b/.test(text))
+            return true;
+        if (!el.querySelectorAll)
+            return false;
+        return el.querySelectorAll('a,button,[role="button"],[role="menuitem"],[role="link"],[aria-haspopup]').length >= 2;
+    }
+    function IsLikelyPageChromeImage(el, imgUrl, width, height) {
+        if (!el || IsLikelyProfileImage(el, imgUrl))
+            return false;
+        let clues = GetProfileImageClues(el, imgUrl).toLowerCase();
+        if (IsLikelyStructuralPageChrome(el, clues))
+            return true;
+        if (/\b(logo|logotype|wordmark|brand|site-logo|navbar-brand|header-logo|app-logo)\b/.test(clues))
+            return true;
+        let boundedUiAsset = width > 0 && height > 0 && width <= 360 && height <= 120;
+        if (boundedUiAsset && /\b(icon|sprite|glyph|symbol)\b/.test(clues))
+            return true;
+        if (!boundedUiAsset)
+            return false;
+        return IsLikelyPageChromeRegion(el, clues);
+    }
     function ImageNeedsBlocking(el, width, height, imgUrl) {
+        if (IsLikelyPageChromeImage(el, imgUrl, width, height))
+            return false;
         return SizeNeedsBlocking(width, height) || IsLikelyProfileImage(el, imgUrl);
     }
     function CssLengthToPx(value, base) {
@@ -1173,14 +1217,16 @@ function DoWin(win, winContentLoaded) {
         else {
             let compStyle = getComputedStyle(el), bg = GetElementBackground(el, compStyle), bgimg = bg ? bg.image : '', bgUrl = ResolveImageUrl(ExtractCssUrl(bgimg)), width = parseInt(compStyle.width) || el.clientWidth, height = parseInt(compStyle.height) || el.clientHeight; //as per https://developer.mozilla.org/en/docs/Web/API/window.getComputedStyle, getComputedStyle will return the 'used values' for width and height, which is always in px. We also use clientXXX, since sometimes compStyle returns NaN.
             let likelyProfileImage = IsLikelyProfileImage(el, bgUrl);
+            let likelyPageChromeImage = IsLikelyPageChromeImage(el, bgUrl, width, height);
             let forceNaturalBg = el.wzmForceBgBlockSrc == bgUrl;
-            if (bgUrl && !forceNaturalBg && !likelyProfileImage && !SizeNeedsBlocking(width, height) && !bgUrl.startsWith(extensionUrl))
+            if (bgUrl && !forceNaturalBg && !likelyProfileImage && !likelyPageChromeImage && !SizeNeedsBlocking(width, height) && !bgUrl.startsWith(extensionUrl))
                 QueueBgNaturalSizeCheck(el, bgUrl, width, height);
             if (bgUrl
                 && NeedsBackgroundProcessing(el, bgUrl)
                 && (forceNaturalBg || SizeNeedsBlocking(width, height) || likelyProfileImage) /*we need to catch 0 too, as sometimes elements start off as zero*/
                 && (forceNaturalBg || likelyProfileImage || !IsSafeBackgroundSize(bg.style, width, height))
                 && (likelyProfileImage || !IsSafeControlBackground(el, width, height))
+                && !likelyPageChromeImage
                 && !bgUrl.startsWith(extensionUrl)) {
                 imgUrl = bgUrl;
                 if (el.wzmLastCheckedSrc != bgUrl) {
