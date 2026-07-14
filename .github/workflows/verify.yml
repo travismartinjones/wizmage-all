@@ -1,0 +1,91 @@
+name: Verify extension
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: linux
+          - os: windows-latest
+            artifact: windows
+          - os: macos-latest
+            artifact: macos
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Chrome for Testing
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v2
+        with:
+          chrome-version: stable
+
+      - name: Run checks and reproducibility test
+        env:
+          WIZMAGE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
+          WIZMAGE_REQUIRE_BROWSER: "1"
+          WIZMAGE_REQUIRE_MV3: "1"
+        run: npm test
+
+      - name: Exercise Bash wrapper
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          bash scripts/build-edge.sh "$RUNNER_TEMP/wizmage-edge"
+          node scripts/package-edge.mjs --verify --out-dir "$RUNNER_TEMP/wizmage-edge"
+
+      - name: Exercise Windows wrappers
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          .\scripts\build-edge.cmd "$env:RUNNER_TEMP\wizmage-edge"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/package-edge.mjs --verify --out-dir "$env:RUNNER_TEMP\wizmage-edge"
+
+      - name: Upload deterministic Edge package
+        uses: actions/upload-artifact@v4
+        with:
+          name: edge-package-${{ matrix.artifact }}
+          path: ${{ runner.temp }}/wizmage-edge/wizmage-ai-edge.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  compare-packages:
+    name: Compare cross-platform packages
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download platform packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: edge-package-*
+          path: packages
+
+      - name: Require byte-identical archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          linux="packages/edge-package-linux/wizmage-ai-edge.zip"
+          windows="packages/edge-package-windows/wizmage-ai-edge.zip"
+          macos="packages/edge-package-macos/wizmage-ai-edge.zip"
+          sha256sum "$linux" "$windows" "$macos"
+          cmp --silent "$linux" "$windows"
+          cmp --silent "$linux" "$macos"

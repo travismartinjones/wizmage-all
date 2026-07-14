@@ -32,6 +32,16 @@
             border-radius: 18px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, .35), 0 2px 8px rgba(0, 0, 0, .18);
         }
+        #save-status {
+            display: none;
+            margin: 0 0 18px;
+            padding: 10px 12px;
+            border: 1px solid #fecaca;
+            border-radius: 9px;
+            background: #fef2f2;
+            color: #991b1b;
+        }
+        #save-status.show { display: block; }
 
         h3 {
             margin: 24px 0 12px;
@@ -356,6 +366,7 @@
     </div>
     <div id="ios-close-hint">Use the browser back button to leave settings.</div>
     <div id='cont'>
+        <div id="save-status" role="status" aria-live="polite"></div>
         <div id="ai-promo">
             <div class="ai-icon">&#x2726;</div>
             <div class="ai-body">
@@ -415,7 +426,7 @@
             <input type='text' id='addName'>
             <input type='submit' value='Add Exception' id='addBut'>
         </form>
-        <div style="margin-top:4px"><i>a URL containing any of the following lines will be matched</i></div>
+        <div style="margin-top:4px"><i>A domain matches that host and its subdomains; a full URL also limits the match to its path prefix.</i></div>
         <div id='list'></div>
         <div class="item-row">
             <input type="checkbox" id="free-text" />
@@ -428,10 +439,11 @@
                 <input type='text' id='allow-safe-add'>
                 <input type='submit' value='Add Exception' id='allow-safe-add-but'>
             </form>
-            <div style="margin-top:4px"><i>safe images are shown on URLs containing any of the following lines</i></div>
+            <div style="margin-top:4px"><i>Safe images are shown on each listed domain and its subdomains.</i></div>
             <div id='allow-safe-list'></div>
         </div>
     </div>
+    <script src='shared.js'></script>
     <script src='options.js'></script>
 </body>
 </html>

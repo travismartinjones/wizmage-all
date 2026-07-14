@@ -1,0 +1,17 @@
+{
+  "name": "wizmage-ai-extension",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Build and verification tooling for the Wizmage browser extension.",
+  "scripts": {
+    "build:edge": "node scripts/package-edge.mjs",
+    "check": "node scripts/test.mjs --check-only",
+    "test": "node scripts/test.mjs",
+    "test:browser": "node scripts/browser-regression.mjs",
+    "test:vm": "node scripts/runtime-vm-tests.mjs",
+    "verify:edge": "node scripts/package-edge.mjs --verify"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

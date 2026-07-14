@@ -1,81 +1,156 @@
-:root:not(.wizmage-show-html) { opacity: 0 !important; background: white !important; }
+/* Keep the page interactive while preventing direct media from painting before
+   it has been inspected. The startup script removes the root gate on failure,
+   and the controller uses the per-element gate for later DOM changes. */
+html.wizmage-media-starting :is(
+    img,
+    input[type="image" i],
+    canvas,
+    svg,
+    image,
+    object[type^="image/" i],
+    embed[type^="image/" i]
+):not([data-wzm-locked="1"]),
+:is(
+    img,
+    input[type="image" i],
+    canvas,
+    svg,
+    image,
+    object[type^="image/" i],
+    embed[type^="image/" i]
+)[data-wzm-media-pending="1"]:not([data-wzm-locked="1"]) {
+    opacity: 0 !important;
+}
 
-:root.wizmage-running > body { background-image: none !important; }
+/* Local settings may let the controller pre-scan while a cold MV3 worker
+   resolves tab-scoped pause/exclusion state. Keep both raw and provisionally
+   filtered media concealed until that authoritative response arrives. */
+html.wizmage-media-authority-pending :is(
+    img,
+    input[type="image" i],
+    canvas,
+    svg,
+    image,
+    object[type^="image/" i],
+    embed[type^="image/" i]
+) {
+    opacity: 0 !important;
+}
 
-.wizmage-hide { opacity: 0 !important; }
+/* This separate rule protects the document rule on engines that do not parse
+   :host-context; Chromium applies it inside the injected shadow stylesheet. */
+:host-context(html.wizmage-media-starting) :is(
+    img,
+    input[type="image" i],
+    canvas,
+    svg,
+    image,
+    object[type^="image/" i],
+    embed[type^="image/" i]
+):not([data-wzm-locked="1"]) {
+    opacity: 0 !important;
+}
 
-.wizmage-locked { content: url("data:image/gif;base64,R0lGODlhAQABAIAAAP///////yH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==") !important; }
-.wizmage-locked.wizmage-pattern-bg-img { opacity: 1 !important; object-fit: fill !important; }
+:host-context(html.wizmage-media-authority-pending) :is(
+    img,
+    input[type="image" i],
+    canvas,
+    svg,
+    image,
+    object[type^="image/" i],
+    embed[type^="image/" i]
+) {
+    opacity: 0 !important;
+}
 
-.wizmage-no-bg { background-image: none !important; }
+[data-wzm-hide="1"] {
+    opacity: 0 !important;
+}
 
-.wizmage-pattern-bg-img.wizmage-cls { background-repeat: repeat !important; text-indent: 0 !important; }
-.wizmage-cls { -webkit-touch-callout: none !important; -webkit-user-select: none !important; user-select: none !important; }
-.wizmage-pattern-bg-img.wizmage-cls:not(.wizmage-hide) { visibility: visible !important; }
+[data-wzm-locked="1"] {
+    content: url("data:image/gif;base64,R0lGODlhAQABAIAAAP///////yH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==") !important;
+    object-fit: fill !important;
+}
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-0 { background-image: var(--wzm-pattern-0, url(pattern0.png)) !important; }
+[data-wzm-pattern-bg-img="1"] {
+    background-repeat: repeat !important;
+    background-size: auto !important;
+    background-position: 0 0 !important;
+}
 
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-0 { background-image: var(--wzm-pattern-light-0, url(pattern-light0.png)) !important; }
-
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-1 { background-image: var(--wzm-pattern-1, url(pattern1.png)) !important; }
-
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-1 { background-image: var(--wzm-pattern-light-1, url(pattern-light1.png)) !important; }
-
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-2 { background-image: var(--wzm-pattern-2, url(pattern2.png)) !important; }
-
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-2 { background-image: var(--wzm-pattern-light-2, url(pattern-light2.png)) !important; }
-
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-3 { background-image: var(--wzm-pattern-3, url(pattern3.png)) !important; }
-
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-3 { background-image: var(--wzm-pattern-light-3, url(pattern-light3.png)) !important; }
-
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-4 { background-image: var(--wzm-pattern-4, url(pattern4.png)) !important; }
-
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-4 { background-image: var(--wzm-pattern-light-4, url(pattern-light4.png)) !important; }
-
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-5 { background-image: var(--wzm-pattern-5, url(pattern5.png)) !important; }
-
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-5 { background-image: var(--wzm-pattern-light-5, url(pattern-light5.png)) !important; }
-
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-6 { background-image: var(--wzm-pattern-6, url(pattern6.png)) !important; }
-
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-6 { background-image: var(--wzm-pattern-light-6, url(pattern-light6.png)) !important; }
-
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-shade-7 { background-image: var(--wzm-pattern-7, url(pattern7.png)) !important; }
-
-    .wizmage-pattern-bg-img.wizmage-cls.wizmage-light.wizmage-shade-7 { background-image: var(--wzm-pattern-light-7, url(pattern-light7.png)) !important; }
-
-.wizmage-pattern-bg-img.wizmage-cls.wizmage-always { background-image: var(--wzm-pattern-light-0, url(pattern-light0.png)) !important; }
-.wizmage-pattern-bg-img.wizmage-cls.wizmage-always.wizmage-light { background-image: var(--wzm-pattern-light-0, url(pattern-light0.png)) !important; }
-.wizmage-pattern-bg-img.wizmage-cls.wizmage-checking { background-image: var(--wzm-pattern-light-2, url(pattern-light2.png)) !important; }
-.wizmage-pattern-bg-img.wizmage-cls.wizmage-checking.wizmage-light { background-image: var(--wzm-pattern-light-2, url(pattern-light2.png)) !important; }
-
-html.wizmage-running div:before, html.wizmage-running div:after { background-image: none !important; }
-html.wizmage-running .wizmage-pattern-bg-img:before,
-html.wizmage-running .wizmage-pattern-bg-img:after { background-image: none !important; }
-
-[data-wzm-hide="1"] { opacity: 0 !important; }
-[data-wzm-locked="1"] { content: url("data:image/gif;base64,R0lGODlhAQABAIAAAP///////yH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==") !important; }
-[data-wzm-locked="1"][data-wzm-pattern-bg-img] { opacity: 1 !important; object-fit: fill !important; }
-[data-wzm-pattern-bg-img] { background-repeat: repeat !important; text-indent: 0 !important; }
-[data-wzm-pattern-bg-img]:not([data-wzm-hide="1"]) { visibility: visible !important; }
 [data-wzm-shade="0"] { background-image: var(--wzm-pattern-0, url(pattern0.png)) !important; }
-[data-wzm-shade="0"][data-wzm-light="1"] { background-image: var(--wzm-pattern-light-0, url(pattern-light0.png)) !important; }
 [data-wzm-shade="1"] { background-image: var(--wzm-pattern-1, url(pattern1.png)) !important; }
-[data-wzm-shade="1"][data-wzm-light="1"] { background-image: var(--wzm-pattern-light-1, url(pattern-light1.png)) !important; }
 [data-wzm-shade="2"] { background-image: var(--wzm-pattern-2, url(pattern2.png)) !important; }
-[data-wzm-shade="2"][data-wzm-light="1"] { background-image: var(--wzm-pattern-light-2, url(pattern-light2.png)) !important; }
 [data-wzm-shade="3"] { background-image: var(--wzm-pattern-3, url(pattern3.png)) !important; }
-[data-wzm-shade="3"][data-wzm-light="1"] { background-image: var(--wzm-pattern-light-3, url(pattern-light3.png)) !important; }
 [data-wzm-shade="4"] { background-image: var(--wzm-pattern-4, url(pattern4.png)) !important; }
-[data-wzm-shade="4"][data-wzm-light="1"] { background-image: var(--wzm-pattern-light-4, url(pattern-light4.png)) !important; }
 [data-wzm-shade="5"] { background-image: var(--wzm-pattern-5, url(pattern5.png)) !important; }
-[data-wzm-shade="5"][data-wzm-light="1"] { background-image: var(--wzm-pattern-light-5, url(pattern-light5.png)) !important; }
 [data-wzm-shade="6"] { background-image: var(--wzm-pattern-6, url(pattern6.png)) !important; }
-[data-wzm-shade="6"][data-wzm-light="1"] { background-image: var(--wzm-pattern-light-6, url(pattern-light6.png)) !important; }
 [data-wzm-shade="7"] { background-image: var(--wzm-pattern-7, url(pattern7.png)) !important; }
-[data-wzm-shade="7"][data-wzm-light="1"] { background-image: var(--wzm-pattern-light-7, url(pattern-light7.png)) !important; }
-[data-wzm-always="1"] { background-image: var(--wzm-pattern-light-0, url(pattern-light0.png)) !important; }
-[data-wzm-checking="1"] { background-image: var(--wzm-pattern-light-2, url(pattern-light2.png)) !important; }
-html.wizmage-running [data-wzm-pattern-bg-img]:before,
-html.wizmage-running [data-wzm-pattern-bg-img]:after { background-image: none !important; }
+
+[data-wzm-shade="0"][data-wzm-checking="1"],
+[data-wzm-shade="0"][data-wzm-always="1"] { background-image: var(--wzm-pattern-light-0, url(pattern-light0.png)) !important; }
+[data-wzm-shade="1"][data-wzm-checking="1"] { background-image: var(--wzm-pattern-light-1, url(pattern-light1.png)) !important; }
+[data-wzm-shade="2"][data-wzm-checking="1"] { background-image: var(--wzm-pattern-light-2, url(pattern-light2.png)) !important; }
+[data-wzm-shade="3"][data-wzm-checking="1"] { background-image: var(--wzm-pattern-light-3, url(pattern-light3.png)) !important; }
+[data-wzm-shade="4"][data-wzm-checking="1"] { background-image: var(--wzm-pattern-light-4, url(pattern-light4.png)) !important; }
+[data-wzm-shade="5"][data-wzm-checking="1"] { background-image: var(--wzm-pattern-light-5, url(pattern-light5.png)) !important; }
+[data-wzm-shade="6"][data-wzm-checking="1"] { background-image: var(--wzm-pattern-light-6, url(pattern-light6.png)) !important; }
+[data-wzm-shade="7"][data-wzm-checking="1"] { background-image: var(--wzm-pattern-light-7, url(pattern-light7.png)) !important; }
+
+[data-wzm-no-pattern="1"] {
+    background-image: none !important;
+    background-color: transparent !important;
+}
+
+/* Suppress only the exact CSS property that was classified. */
+[data-wzm-suppress-self-mask="1"] {
+    mask-image: none !important;
+    -webkit-mask-image: none !important;
+}
+
+[data-wzm-suppress-self-border="1"] {
+    border-image-source: none !important;
+}
+
+[data-wzm-suppress-self-list="1"] {
+    list-style-image: none !important;
+}
+
+[data-wzm-suppress-self-content="1"]:not([data-wzm-locked="1"]) {
+    content: none !important;
+}
+
+[data-wzm-suppress-before-background="1"]::before,
+[data-wzm-suppress-after-background="1"]::after {
+    background-image: none !important;
+}
+
+[data-wzm-suppress-before-mask="1"]::before,
+[data-wzm-suppress-after-mask="1"]::after {
+    mask-image: none !important;
+    -webkit-mask-image: none !important;
+}
+
+[data-wzm-suppress-before-border="1"]::before,
+[data-wzm-suppress-after-border="1"]::after {
+    border-image-source: none !important;
+}
+
+[data-wzm-suppress-before-list="1"]::before,
+[data-wzm-suppress-after-list="1"]::after {
+    list-style-image: none !important;
+}
+
+[data-wzm-suppress-before-content="1"]::before,
+[data-wzm-suppress-after-content="1"]::after {
+    content: none !important;
+}
+
+svg[data-wzm-locked="1"] > * {
+    visibility: hidden !important;
+}
+
+[data-wzm-eye="1"] {
+    box-sizing: border-box !important;
+    filter: none !important;
+}

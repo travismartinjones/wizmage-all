@@ -105,6 +105,12 @@
 		E818BEC12F2323B2005A3C39 /* pattern-light1.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE712F2323B2005A3C39 /* pattern-light1.png */; };
 		E818BEC22F2323B2005A3C39 /* popup.htm in Resources */ = {isa = PBXBuildFile; fileRef = E818BE722F2323B2005A3C39 /* popup.htm */; };
 		E818BEC32F2323B2005A3C39 /* pattern-light0.png in Resources */ = {isa = PBXBuildFile; fileRef = E818BE732F2323B2005A3C39 /* pattern-light0.png */; };
+		E818BEC62F2323B2005A3C39 /* shared.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BEC42F2323B2005A3C39 /* shared.js */; };
+		E818BEC72F2323B2005A3C39 /* content-controller.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BEC52F2323B2005A3C39 /* content-controller.js */; };
+		E818BEC82F2323B2005A3C39 /* shared.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BEC42F2323B2005A3C39 /* shared.js */; };
+		E818BEC92F2323B2005A3C39 /* content-controller.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BEC52F2323B2005A3C39 /* content-controller.js */; };
+		E818BECB2F2323B2005A3C39 /* media-startup.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BECA2F2323B2005A3C39 /* media-startup.js */; };
+		E818BECC2F2323B2005A3C39 /* media-startup.js in Resources */ = {isa = PBXBuildFile; fileRef = E818BECA2F2323B2005A3C39 /* media-startup.js */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -209,6 +215,9 @@
 		E818BE712F2323B2005A3C39 /* pattern-light1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "pattern-light1.png"; path = "../../pattern-light1.png"; sourceTree = "<group>"; };
 		E818BE722F2323B2005A3C39 /* popup.htm */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = popup.htm; path = ../../popup.htm; sourceTree = "<group>"; };
 		E818BE732F2323B2005A3C39 /* pattern-light0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "pattern-light0.png"; path = "../../pattern-light0.png"; sourceTree = "<group>"; };
+		E818BEC42F2323B2005A3C39 /* shared.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = shared.js; path = ../../shared.js; sourceTree = "<group>"; };
+		E818BEC52F2323B2005A3C39 /* content-controller.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "content-controller.js"; path = "../../content-controller.js"; sourceTree = "<group>"; };
+		E818BECA2F2323B2005A3C39 /* media-startup.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "media-startup.js"; path = "../../media-startup.js"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -338,6 +347,8 @@
 		E818BE4B2F2323B2005A3C39 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				E818BEC52F2323B2005A3C39 /* content-controller.js */,
+				E818BECA2F2323B2005A3C39 /* media-startup.js */,
 				E818BE4C2F2323B2005A3C39 /* gear.png */,
 				E818BE4D2F2323B2005A3C39 /* icon16.png */,
 				E818BE4E2F2323B2005A3C39 /* migrate-settings.htm */,
@@ -376,6 +387,7 @@
 				E818BE712F2323B2005A3C39 /* pattern-light1.png */,
 				E818BE722F2323B2005A3C39 /* popup.htm */,
 				E818BE732F2323B2005A3C39 /* pattern-light0.png */,
+				E818BEC42F2323B2005A3C39 /* shared.js */,
 			);
 			name = Resources;
 			path = "Shared (Extension)";
@@ -542,6 +554,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E818BEC92F2323B2005A3C39 /* content-controller.js in Resources */,
+				E818BECC2F2323B2005A3C39 /* media-startup.js in Resources */,
 				E818BEA82F2323B2005A3C39 /* pattern4.png in Resources */,
 				E818BEB42F2323B2005A3C39 /* pattern0.png in Resources */,
 				E818BEC02F2323B2005A3C39 /* options.css in Resources */,
@@ -580,6 +594,7 @@
 				E818BEAD2F2323B2005A3C39 /* pattern6.png in Resources */,
 				E818BEBB2F2323B2005A3C39 /* pattern-light7.png in Resources */,
 				E818BEBF2F2323B2005A3C39 /* pattern-light3.png in Resources */,
+				E818BEC82F2323B2005A3C39 /* shared.js in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -587,6 +602,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E818BEC72F2323B2005A3C39 /* content-controller.js in Resources */,
+				E818BECB2F2323B2005A3C39 /* media-startup.js in Resources */,
 				E818BE802F2323B2005A3C39 /* pattern4.png in Resources */,
 				E818BE8C2F2323B2005A3C39 /* pattern0.png in Resources */,
 				E818BE982F2323B2005A3C39 /* options.css in Resources */,
@@ -623,6 +640,7 @@
 				E818BE762F2323B2005A3C39 /* migrate-settings.htm in Resources */,
 				E818BE752F2323B2005A3C39 /* icon16.png in Resources */,
 				E818BE852F2323B2005A3C39 /* pattern6.png in Resources */,
+				E818BEC62F2323B2005A3C39 /* shared.js in Resources */,
 				E818BE932F2323B2005A3C39 /* pattern-light7.png in Resources */,
 				E818BE972F2323B2005A3C39 /* pattern-light3.png in Resources */,
 			);

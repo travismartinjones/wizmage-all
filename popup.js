@@ -5,6 +5,8 @@ var wzmTabs = (wzmChrome && wzmChrome.tabs) || (wzmBrowser && wzmBrowser.tabs) |
 var wzmUsePromiseApi = !!wzmBrowser && (!wzmChrome || wzmChrome === wzmBrowser);
 var wzmStorageLocal = (wzmChrome && wzmChrome.storage && wzmChrome.storage.local) || (wzmBrowser && wzmBrowser.storage && wzmBrowser.storage.local) || null;
 var wzmStorageSession = (wzmChrome && wzmChrome.storage && wzmChrome.storage.session) || (wzmBrowser && wzmBrowser.storage && wzmBrowser.storage.session) || wzmStorageLocal;
+var wzmCanUseWorker = !!wzmRuntime && typeof wzmRuntime.sendMessage === 'function';
+var wzmShared = typeof globalThis !== 'undefined' ? globalThis.WizmageShared : null;
 function wzmSendMessage(message, callback) {
     if (!wzmRuntime || !wzmRuntime.sendMessage) {
         if (callback) callback();
@@ -29,43 +31,80 @@ function wzmSendMessage(message, callback) {
     }
 }
 function wzmStorageGet(area, keys, callback) {
+    callback = typeof callback === 'function' ? callback : function () { };
     if (!area || !area.get) {
-        if (callback) callback({});
+        callback({}, false);
         return;
     }
+    let completed = false;
+    let finish = function (value, success) {
+        if (completed)
+            return;
+        completed = true;
+        callback(value || {}, !!success);
+    };
+    let callbackResult = function (value) {
+        if (wzmChrome && wzmChrome.runtime && wzmChrome.runtime.lastError)
+            finish({}, false);
+        else
+            finish(value, true);
+    };
     try {
-        var maybePromise = area.get(keys);
-        if (maybePromise && typeof maybePromise.then === 'function') {
-            if (callback) maybePromise.then(callback).catch(function () { callback({}); });
-            return maybePromise;
+        let maybePromise = area.get(keys, callbackResult);
+        if (maybePromise && typeof maybePromise.then === 'function')
+            maybePromise.then(function (value) { finish(value, true); }).catch(function () { finish({}, false); });
+        return maybePromise;
+    } catch (err) {
+        try {
+            var promise = area.get(keys);
+            if (promise && typeof promise.then === 'function')
+                promise.then(function (value) { finish(value, true); }).catch(function () { finish({}, false); });
+            else
+                finish({}, false);
+            return promise;
+        } catch (retryError) {
+            finish({}, false);
+            return;
         }
-    } catch (err) {
-        // fall through
-    }
-    try {
-        return area.get(keys, callback);
-    } catch (err) {
-        if (callback) callback({});
     }
 }
 function wzmStorageSet(area, items, callback) {
+    callback = typeof callback === 'function' ? callback : function () { };
     if (!area || !area.set) {
-        if (callback) callback();
+        callback(false);
         return;
     }
+    let completed = false;
+    let finish = function (success) {
+        if (completed)
+            return;
+        completed = true;
+        callback(!!success);
+    };
+    let callbackResult = function () {
+        if (wzmChrome && wzmChrome.runtime && wzmChrome.runtime.lastError)
+            finish(false);
+        else
+            finish(true);
+    };
     try {
-        var maybePromise = area.set(items);
-        if (maybePromise && typeof maybePromise.then === 'function') {
-            if (callback) maybePromise.then(callback).catch(function () { callback(); });
-            return maybePromise;
+        let maybePromise = area.set(items, callbackResult);
+        if (maybePromise && typeof maybePromise.then === 'function')
+            maybePromise.then(function () { finish(true); }).catch(function () { finish(false); });
+        return maybePromise;
+    } catch (err) {
+        // Promise-only browser APIs reject the callback argument before writing.
+        try {
+            var promise = area.set(items);
+            if (promise && typeof promise.then === 'function')
+                promise.then(function () { finish(true); }).catch(function () { finish(false); });
+            else
+                finish(false);
+            return promise;
+        } catch (retryError) {
+            finish(false);
+            return;
         }
-    } catch (err) {
-        // fall through
-    }
-    try {
-        return area.set(items, callback);
-    } catch (err) {
-        if (callback) callback();
     }
 }
 function wzmStorageGetLocal(keys, callback) {
@@ -81,6 +120,8 @@ function wzmStorageSetSession(items, callback) {
     return wzmStorageSet(wzmStorageSession, items, callback);
 }
 function wzmDefaultSettings() {
+    if (wzmShared)
+        return Object.assign({}, wzmShared.DEFAULT_SETTINGS);
     return {
         paused: false,
         noEye: false,
@@ -93,6 +134,10 @@ function wzmDefaultSettings() {
     };
 }
 function wzmGetDomain(url) {
+    if (wzmShared) {
+        let parsed = wzmShared.parseUrl(url);
+        return parsed ? wzmShared.normalizeHost(parsed.hostname) : null;
+    }
     let regex = /^\w+:\/\/([\w\.:-]+)/.exec(url || '');
     return regex ? regex[1].toLowerCase() : null;
 }
@@ -109,51 +154,61 @@ function wzmRemoveMatches(list, predicate) {
     }
 }
 function wzmUrlMatchesList(url, list) {
-    let lowerUrl = (url || '').toLowerCase();
-    for (let i = 0; i < list.length; i++) {
-        let entry = (list[i] || '').toLowerCase();
-        if (entry && lowerUrl.indexOf(entry) != -1)
-            return true;
-    }
+    if (wzmShared)
+        return wzmShared.urlMatchesList(url, list);
     return false;
 }
+function wzmNormalizeSettings(settings) {
+    if (wzmShared)
+        return wzmShared.normalizeSettings(settings);
+    return Object.assign(wzmDefaultSettings(), settings && typeof settings === 'object' ? settings : {});
+}
 function wzmDomainMatchesList(domain, list) {
+    if (wzmShared)
+        return wzmShared.domainMatchesList(domain, list);
     domain = (domain || '').toLowerCase();
     for (let i = 0; i < list.length; i++) {
         let entry = (list[i] || '').toLowerCase();
-        if (entry && domain.indexOf(entry) !== -1)
+        if (entry && (domain === entry || domain.endsWith('.' + entry)))
             return true;
     }
     return false;
 }
 function wzmGetPopupSettings(activeTab, callback) {
+    if (!wzmCanUseWorker) {
+        wzmGetSettingsFromStorage(activeTab, callback);
+        return;
+    }
     let responded = false;
     wzmSendMessage({ r: 'getSettings', tab: activeTab }, function (settings) {
         if (responded)
             return;
         responded = true;
-        if (settings && typeof settings === 'object') {
+        if (settings && typeof settings === 'object' && settings.ok !== false) {
             callback(settings);
             return;
         }
-        wzmGetSettingsFromStorage(activeTab, callback);
+        callback(null);
     });
     setTimeout(function () {
         if (responded)
             return;
         responded = true;
-        wzmGetSettingsFromStorage(activeTab, callback);
-    }, 400);
+        callback(null);
+    }, 2000);
 }
 function wzmGetSettingsFromStorage(activeTab, callback) {
-    wzmStorageGetLocal(['settings', 'urlList', 'allowSafeDomains'], function (data) {
-        wzmStorageGetSession({ pauseForTabs: [], excludeForTabs: [] }, function (sessionData) {
-            let s = data && data.settings ? data.settings : wzmDefaultSettings();
-            if (s && typeof s === 'object') {
-                s = Object.assign(wzmDefaultSettings(), s);
-            } else {
-                s = wzmDefaultSettings();
+    wzmStorageGetLocal(['settings', 'urlList', 'allowSafeDomains'], function (data, localOk) {
+        if (!localOk) {
+            callback(null);
+            return;
+        }
+        wzmStorageGetSession({ pauseForTabs: [], excludeForTabs: [] }, function (sessionData, sessionOk) {
+            if (!sessionOk) {
+                callback(null);
+                return;
             }
+            let s = wzmNormalizeSettings(data && data.settings);
             s.pausedForTab = false;
             s.excludedForTab = false;
             s.excluded = false;
@@ -183,28 +238,44 @@ function wzmGetSettingsFromStorage(activeTab, callback) {
     });
 }
 function wzmUpdateSettingsLocal(updateFn, done) {
-    wzmStorageGetLocal(['settings'], function (data) {
+    wzmStorageGetLocal(['settings'], function (data, success) {
+        if (!success) {
+            if (done) done(false);
+            return;
+        }
         let s = data && data.settings ? data.settings : wzmDefaultSettings();
         updateFn(s);
         wzmStorageSetLocal({ settings: s }, done);
     });
 }
 function wzmUpdateUrlListLocal(updateFn, done) {
-    wzmStorageGetLocal(['urlList'], function (data) {
+    wzmStorageGetLocal(['urlList'], function (data, success) {
+        if (!success) {
+            if (done) done(false);
+            return;
+        }
         let list = (data && Array.isArray(data.urlList)) ? data.urlList : [];
         updateFn(list);
         wzmStorageSetLocal({ urlList: list }, done);
     });
 }
 function wzmUpdateAllowSafeDomainsLocal(updateFn, done) {
-    wzmStorageGetLocal(['allowSafeDomains'], function (data) {
+    wzmStorageGetLocal(['allowSafeDomains'], function (data, success) {
+        if (!success) {
+            if (done) done(false);
+            return;
+        }
         let list = (data && Array.isArray(data.allowSafeDomains)) ? data.allowSafeDomains : [];
         updateFn(list);
         wzmStorageSetLocal({ allowSafeDomains: list }, done);
     });
 }
 function wzmUpdatePauseForTabsLocal(tabId, toggle, done) {
-    wzmStorageGetSession({ pauseForTabs: [] }, function (data) {
+    wzmStorageGetSession({ pauseForTabs: [] }, function (data, success) {
+        if (!success) {
+            if (done) done(false);
+            return;
+        }
         let list = (data && Array.isArray(data.pauseForTabs)) ? data.pauseForTabs : [];
         if (toggle)
             wzmAddUnique(list, tabId);
@@ -214,11 +285,15 @@ function wzmUpdatePauseForTabsLocal(tabId, toggle, done) {
     });
 }
 function wzmUpdateExcludeForTabsLocal(tab, toggle, done) {
-    wzmStorageGetSession({ excludeForTabs: [] }, function (data) {
+    wzmStorageGetSession({ excludeForTabs: [] }, function (data, success) {
+        if (!success) {
+            if (done) done(false);
+            return;
+        }
         let list = (data && Array.isArray(data.excludeForTabs)) ? data.excludeForTabs : [];
         let domain = tab && wzmGetDomain(tab.url);
         if (!domain) {
-            if (done) done();
+            if (done) done(false);
             return;
         }
         if (toggle) {
@@ -266,45 +341,46 @@ function wzmTabsSendMessage(tabId, message, callback) {
 function wzmTabsReload(tabId) {
     if (!wzmTabs || !wzmTabs.reload)
         return;
-    if (wzmUsePromiseApi) {
-        try {
-            return wzmTabs.reload(tabId);
-        } catch (err) {
-            return;
-        }
-    }
     try {
-        return wzmTabs.reload(tabId);
+        var result = wzmTabs.reload(tabId);
+        if (result && typeof result.catch === 'function')
+            result.catch(function () { });
+        return result;
     } catch (err) {
         // ignore
     }
 }
 wzmTabsQuery({ active: true, currentWindow: true }, function (tabs) {
     var activeTab = tabs[0], closeOnClick, currentSettings;
+    var settingsWriteQueue = [], settingsWriteInProgress = false;
     var excludeAlwaysBlock = document.getElementById('excludeAlwaysBlock');
     var excludeAlwaysBlockW = document.getElementById('exclude-always-block-w');
-    function showImages() {
-        if (!activeTab)
+    function sendContentCommandWithReloadFallback(route, done) {
+        if (!activeTab) {
+            if (done) done(false);
             return;
-        wzmTabsSendMessage(activeTab.id, { r: 'showImages' });
-    }
-    function restartImages() {
-        if (!activeTab)
-            return;
-        wzmTabsSendMessage(activeTab.id, { r: 'restart' }, function (resp) {
-            if (!resp || !resp.ok) {
+        }
+        let finished = false;
+        let finish = function (resp) {
+            if (finished)
+                return;
+            finished = true;
+            let ok = !!resp && resp.ok === true;
+            if (!ok)
                 wzmTabsReload(activeTab.id);
-            }
-        });
+            if (done) done(ok);
+        };
+        wzmTabsSendMessage(activeTab.id, { r: route }, finish);
+        setTimeout(function () { finish(); }, 2000);
     }
-    function refreshSettings() {
-        if (!activeTab)
-            return;
-        wzmTabsSendMessage(activeTab.id, { r: 'refreshSettings' }, function (resp) {
-            if (!resp || !resp.ok) {
-                wzmTabsReload(activeTab.id);
-            }
-        });
+    function showImages(done) {
+        sendContentCommandWithReloadFallback('showImages', done);
+    }
+    function restartImages(done) {
+        sendContentCommandWithReloadFallback('restart', done);
+    }
+    function refreshSettings(done) {
+        sendContentCommandWithReloadFallback('refreshSettings', done);
     }
     function isFilteringActive(settings) {
         if (!settings)
@@ -314,67 +390,104 @@ wzmTabsQuery({ active: true, currentWindow: true }, function (tabs) {
             && ((!settings.blackList && !settings.excluded && !settings.excludedForTab)
                 || (settings.blackList && (settings.excluded || settings.excludedForTab)));
     }
-    function syncContentForSettings(wasActive) {
+    function syncContentForSettings(wasActive, done) {
         let active = isFilteringActive(currentSettings);
         if (active) {
             if (wasActive)
-                refreshSettings();
+                refreshSettings(done);
             else
-                restartImages();
+                restartImages(done);
         }
         else {
-            showImages();
+            showImages(done);
         }
     }
-    function finishQuickSetting(wasActive) {
-        syncContentForSettings(wasActive);
-        if (closeOnClick) close();
+    function showPopupError(message) {
+        let whenRunning = document.getElementById('when-running');
+        let error = document.getElementById('err-msg');
+        if (whenRunning)
+            whenRunning.style.display = 'none';
+        if (error)
+            error.innerText = message;
+    }
+    function finishQuickSetting(wasActive, success) {
+        if (!success) {
+            showPopupError('The setting could not be saved. Reopen the popup and try again.');
+            return;
+        }
+        // Worker-owned writes are propagated to every open content tab. A true
+        // no-runtime fallback waits until its active-tab transition or reload
+        // has been initiated before allowing the popup to close.
+        if (!wzmCanUseWorker) {
+            syncContentForSettings(wasActive, function () {
+                if (closeOnClick) close();
+            });
+            return;
+        }
+        if (closeOnClick)
+            close();
     }
     function runSettingsWrite(message, fallback, done) {
+        settingsWriteQueue.push({ message: message, fallback: fallback, done: done });
+        drainSettingsWrites();
+    }
+    function drainSettingsWrites() {
+        if (settingsWriteInProgress || !settingsWriteQueue.length)
+            return;
+        settingsWriteInProgress = true;
+        let job = settingsWriteQueue.shift();
         let finished = false;
-        let finish = function (resp) {
+        let finish = function (success) {
             if (finished)
                 return;
-            if (resp && resp.ok) {
-                finished = true;
-                if (done) done();
-                return;
-            }
-            if (fallback) {
-                finished = true;
-                fallback(done);
+            finished = true;
+            if (job.done)
+                job.done(success);
+            settingsWriteInProgress = false;
+            drainSettingsWrites();
+        };
+        if (!wzmCanUseWorker) {
+            if (job.fallback) {
+                job.fallback(function (success) { finish(success === true); });
             }
             else {
-                finished = true;
-                if (done) done();
+                finish(false);
             }
-        };
-        wzmSendMessage(message, finish);
-        setTimeout(function () { finish(); }, 800);
+            return;
+        }
+        wzmSendMessage(job.message, function (response) {
+            finish(!!response && response.ok === true);
+        });
+        setTimeout(function () { finish(false); }, 2000);
     }
     wzmGetPopupSettings(activeTab, function (settings) {
-        let showErr = msg => {
-            document.getElementById('when-running').style.display = 'none';
-            document.getElementById('err-msg').innerText = msg;
+        if (!settings) {
+            showPopupError('WizMage settings could not be loaded. Reopen the popup and try again.');
+            return;
         }
-        currentSettings = Object.assign(wzmDefaultSettings(), settings);
+        currentSettings = wzmNormalizeSettings(settings);
+        let activeDomain = activeTab && wzmGetDomain(activeTab.url);
         document.getElementById('pauseChk').checked = !!settings.paused;
         document.getElementById('pauseTab').checked = !!settings.pausedForTab;
         document.getElementById('excludeDomain').checked = !!settings.excluded;
+        document.getElementById('excludeDomain').disabled = !activeDomain;
         document.getElementById('excludeForTab').checked = !!settings.excludedForTab;
+        document.getElementById('excludeForTab').disabled = !activeDomain;
         let excludeTabWrap = document.getElementById('exclude-tab-wrap');
         if (excludeTabWrap)
             excludeTabWrap.style.display = 'block';
         if (excludeAlwaysBlock && excludeAlwaysBlockW) {
             excludeAlwaysBlock.checked = !!settings.allowSafeDomain;
+            excludeAlwaysBlock.disabled = !activeDomain;
             excludeAlwaysBlockW.style.display = settings.alwaysBlock ? '' : 'none';
         }
         document.querySelectorAll('i-add-exclude').forEach(x => x.innerText = settings.blackList ? 'Add' : 'Exclude');
         closeOnClick = settings.closeOnClick;
     });
     document.getElementById('showImages').onclick = function () {
-        showImages();
-        if (closeOnClick) close();
+        showImages(function () {
+            if (closeOnClick) close();
+        });
     };
     document.getElementById('excludeDomain').onclick = function () {
         if (!currentSettings)
@@ -385,21 +498,23 @@ wzmTabsQuery({ active: true, currentWindow: true }, function (tabs) {
         if (isChecked) {
             runSettingsWrite(
                 { r: 'urlListAdd', url: activeTab.url, domainOnly: true },
-                done => wzmUpdateUrlListLocal(list => {
+                done => {
                     let domain = wzmGetDomain(activeTab.url);
-                    if (domain)
-                        wzmAddUnique(list, domain);
-                }, done),
-                () => finishQuickSetting(wasActive)
+                    if (!domain) {
+                        done(false);
+                        return;
+                    }
+                    wzmUpdateUrlListLocal(list => wzmAddUnique(list, domain), done);
+                },
+                success => finishQuickSetting(wasActive, success)
             );
         } else {
             runSettingsWrite(
                 { r: 'urlListRemove', url: activeTab.url },
                 done => wzmUpdateUrlListLocal(list => {
-                    let lowerUrl = (activeTab.url || '').toLowerCase();
-                    wzmRemoveMatches(list, entry => lowerUrl.indexOf((entry || '').toLowerCase()) != -1);
+                    wzmRemoveMatches(list, entry => wzmUrlMatchesList(activeTab.url, [entry]));
                 }, done),
-                () => finishQuickSetting(wasActive)
+                success => finishQuickSetting(wasActive, success)
             );
         }
     };
@@ -412,7 +527,7 @@ wzmTabsQuery({ active: true, currentWindow: true }, function (tabs) {
         runSettingsWrite(
             { r: 'excludeForTab', toggle: isChecked, tab: activeTab },
             done => wzmUpdateExcludeForTabsLocal(activeTab, isChecked, done),
-            () => finishQuickSetting(wasActive)
+            success => finishQuickSetting(wasActive, success)
         );
     };
     document.getElementById('pauseChk').onclick = function () {
@@ -424,7 +539,7 @@ wzmTabsQuery({ active: true, currentWindow: true }, function (tabs) {
         runSettingsWrite(
             { r: 'pause', toggle: isChecked },
             done => wzmUpdateSettingsLocal(s => { s.paused = isChecked; }, done),
-            () => finishQuickSetting(wasActive)
+            success => finishQuickSetting(wasActive, success)
         );
     };
     document.getElementById('pauseTab').onclick = function () {
@@ -436,7 +551,7 @@ wzmTabsQuery({ active: true, currentWindow: true }, function (tabs) {
         runSettingsWrite(
             { r: 'pauseForTab', tabId: activeTab.id, toggle: isChecked },
             done => wzmUpdatePauseForTabsLocal(activeTab.id, isChecked, done),
-            () => finishQuickSetting(wasActive)
+            success => finishQuickSetting(wasActive, success)
         );
     };
     if (excludeAlwaysBlock) {
@@ -453,15 +568,9 @@ wzmTabsQuery({ active: true, currentWindow: true }, function (tabs) {
                     if (isChecked)
                         wzmAddUnique(list, domain);
                     else
-                        wzmRemoveMatches(list, entry => domain.indexOf((entry || '').toLowerCase()) !== -1);
+                        wzmRemoveMatches(list, entry => (entry || '').toLowerCase() === domain);
                 }, done),
-                function () {
-                    if (isFilteringActive(currentSettings))
-                        refreshSettings();
-                    else
-                        showImages();
-                    if (closeOnClick) close();
-                }
+                success => finishQuickSetting(isFilteringActive(currentSettings), success)
             );
         };
     }
