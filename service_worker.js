@@ -24,6 +24,11 @@ const MAX_PENDING_WAITERS = 4096;
 const MAX_ANALYSIS_URL_CHARS = 512 * 1024;
 const MAX_NETWORK_URL_CHARS = 32 * 1024;
 const MAX_PENDING_URL_CHARS = 8 * 1024 * 1024;
+const MAX_AUTHENTICATED_IMAGE_BYTES = 12 * 1024 * 1024;
+const MAX_AUTHENTICATED_ANALYSIS_URL_CHARS = 12 * 1024;
+const MAX_DIRECT_AUTHENTICATED_IMAGE_BYTES = Math.floor((MAX_AUTHENTICATED_ANALYSIS_URL_CHARS - 64) * 3 / 4);
+const MAX_ANALYSIS_IMAGE_DIMENSION = 256;
+const SLACK_COOKIE_RULE_ID = 940001;
 const MAX_PAGE_URL_CHARS = 16 * 1024;
 const CACHE_MAX = 2000;
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -72,6 +77,8 @@ let sendQueue = null;
 let flushTimer = null;
 let pendingUrlCharacters = 0;
 let pendingWaiterCount = 0;
+let slackCookieRuleSignature = null;
+let slackCookieRulePromise = null;
 
 const swLogKey = 'wzmSwLog';
 function recordSwLog(event, detail) {
@@ -488,10 +495,18 @@ async function broadcastStateChange(changedKeys, refreshContentTabs) {
     if (!refreshContentTabs)
         return;
 
+    await refreshOpenContentTabs(keys, revision);
+}
+
+async function refreshOpenContentTabs(changedKeys, revision) {
     // Content scripts need tab-specific effective settings, so ask each frame to refresh
     // through the existing getSettings route rather than broadcasting global-only values.
     const tabs = await queryTabs();
-    const message = { r: 'refreshSettings', changedKeys: keys, revision };
+    const message = {
+        r: 'refreshSettings',
+        changedKeys: Array.from(new Set(changedKeys || [])),
+        revision: revision || ++stateRevision
+    };
     await Promise.all(tabs.map(tab => sendTabMessage(tab && tab.id, message)));
 }
 
@@ -691,19 +706,30 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
                 break;
             }
             case 'allowSafeForDomain': {
-                let domain = normalizeDomainEntry(request.domain) || getDomain(request.url);
+                const explicitDomain = normalizeDomainEntry(request.domain);
+                let domain = explicitDomain || getDomain(request.url);
                 if (!domain) {
                     sendResponse({ ok: false });
                     break;
                 }
                 await queueStorageMutation(storageLocal, { allowSafeDomains: [] }, data => {
                     const allowSafeDomains = Array.isArray(data.allowSafeDomains) ? data.allowSafeDomains : [];
+                    const before = JSON.stringify(allowSafeDomains);
                     if (request.toggle)
                         addUnique(allowSafeDomains, domain);
+                    else if (explicitDomain)
+                        removeMatches(allowSafeDomains, entry => normalizeDomainEntry(entry) === explicitDomain);
                     else
-                        removeMatches(allowSafeDomains, entry => normalizeDomainEntry(entry) === domain);
+                        removeMatches(allowSafeDomains, entry => hostnameMatchesDomain(domain, entry));
+                    if (JSON.stringify(allowSafeDomains) === before)
+                        return null;
                     return { allowSafeDomains };
-                });
+                }, true);
+                // Do not depend on a later storage.onChanged task surviving the
+                // MV3 worker response boundary. Refresh content before the popup
+                // is told the toggle succeeded; the suppressed storage event
+                // still notifies extension pages without duplicating this pass.
+                await refreshOpenContentTabs(['allowSafeDomains']);
                 sendResponse({ ok: true });
                 break;
             }
@@ -877,7 +903,215 @@ function analyze(imgUrl, pageUrl, blockTarget, serverUrl, sendResponse) {
     });
     pendingWaiterCount++;
     request.requestTimer = setTimeout(() => completeRequest(request, -1, false), REQUEST_TIMEOUT_MS);
-    queueReq(request);
+    if (shouldPrepareAuthenticatedImageUrl(imgUrl)) {
+        Promise.resolve(prepareAuthenticatedImageUrl(imgUrl)).then(preparedUrl => {
+            if (request.completed)
+                return;
+            if (preparedUrl) {
+                const nextLength = preparedUrl.length;
+                const nextPendingCharacters = pendingUrlCharacters - request.urlLength + nextLength;
+                if (nextPendingCharacters <= MAX_PENDING_URL_CHARS) {
+                    pendingUrlCharacters = nextPendingCharacters;
+                    request.url = preparedUrl;
+                    request.urlLength = nextLength;
+                }
+            }
+            queueReq(request);
+        }, () => {
+            if (!request.completed)
+                queueReq(request);
+        });
+    }
+    else {
+        queueReq(request);
+    }
+}
+
+function shouldPrepareAuthenticatedImageUrl(value) {
+    try {
+        const parsed = new URL(String(value || ''));
+        return parsed.protocol === 'https:' && parsed.hostname.toLowerCase() === 'files.slack.com';
+    } catch (err) {
+        return false;
+    }
+}
+
+async function prepareAuthenticatedImageUrl(value) {
+    if (!shouldPrepareAuthenticatedImageUrl(value) || typeof fetch !== 'function')
+        return null;
+    try {
+        await ensureSlackCookieRule(false);
+    } catch (err) {
+        // The normal credentialed fetch may still work when third-party cookies
+        // are allowed, so a rule setup failure is not fatal by itself.
+    }
+    let response;
+    try {
+        response = await fetch(value, {
+            cache: 'force-cache',
+            credentials: 'include',
+            redirect: 'follow'
+        });
+    } catch (err) {
+        return null;
+    }
+    let responseType = readResponseContentType(response);
+    if (!response || !response.ok || response.type === 'opaque'
+        || (responseType && !responseType.startsWith('image/'))) {
+        try {
+            await ensureSlackCookieRule(true);
+            response = await fetch(value, {
+                cache: 'no-store',
+                credentials: 'include',
+                redirect: 'follow'
+            });
+            responseType = readResponseContentType(response);
+        } catch (err) {
+            return null;
+        }
+    }
+    if (!response || !response.ok || response.type === 'opaque')
+        return null;
+    if (responseType && !responseType.startsWith('image/'))
+        return null;
+    const contentLength = response.headers && response.headers.get
+        ? Number(response.headers.get('content-length'))
+        : 0;
+    if (Number.isFinite(contentLength) && contentLength > MAX_AUTHENTICATED_IMAGE_BYTES)
+        return null;
+    let blob;
+    try {
+        blob = await response.blob();
+    } catch (err) {
+        return null;
+    }
+    if (!blob || !blob.size || blob.size > MAX_AUTHENTICATED_IMAGE_BYTES)
+        return null;
+    const blobType = String(blob.type || responseType || '').split(';')[0].trim().toLowerCase();
+    if (blobType && !blobType.startsWith('image/'))
+        return null;
+    return encodeAuthenticatedImageBlob(blob, blobType || 'image/jpeg');
+}
+
+function readResponseContentType(response) {
+    return response && response.headers && response.headers.get
+        ? String(response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
+        : '';
+}
+
+async function ensureSlackCookieRule(forceRefresh) {
+    const cookiesApi = wzmChrome && wzmChrome.cookies;
+    const rulesApi = wzmChrome && wzmChrome.declarativeNetRequest;
+    const runtimeId = wzmChrome && wzmChrome.runtime && wzmChrome.runtime.id;
+    if (!cookiesApi || typeof cookiesApi.getAll !== 'function'
+        || !rulesApi || typeof rulesApi.updateSessionRules !== 'function'
+        || !runtimeId)
+        return false;
+    if (!forceRefresh && slackCookieRuleSignature)
+        return true;
+    if (slackCookieRulePromise)
+        return slackCookieRulePromise;
+
+    const install = (async () => {
+        const cookies = await cookiesApi.getAll({ url: 'https://files.slack.com/' });
+        const cookieHeader = (Array.isArray(cookies) ? cookies : [])
+            .filter(cookie => cookie && cookie.name
+                && !/[\r\n;]/.test(String(cookie.name))
+                && !/[\r\n]/.test(String(cookie.value || '')))
+            .sort((left, right) => String(right.path || '').length - String(left.path || '').length)
+            .map(cookie => String(cookie.name) + '=' + String(cookie.value || ''))
+            .join('; ');
+        if (!cookieHeader || cookieHeader.length > 16 * 1024)
+            return false;
+        const signature = hash64(cookieHeader);
+        if (!forceRefresh && signature === slackCookieRuleSignature)
+            return true;
+        await rulesApi.updateSessionRules({
+            removeRuleIds: [SLACK_COOKIE_RULE_ID],
+            addRules: [{
+                id: SLACK_COOKIE_RULE_ID,
+                priority: 1,
+                action: {
+                    type: 'modifyHeaders',
+                    requestHeaders: [{
+                        header: 'cookie',
+                        operation: 'set',
+                        value: cookieHeader
+                    }]
+                },
+                condition: {
+                    initiatorDomains: [runtimeId],
+                    requestDomains: ['files.slack.com', 'files-origin.slack.com'],
+                    requestMethods: ['get'],
+                    resourceTypes: ['xmlhttprequest']
+                }
+            }]
+        });
+        slackCookieRuleSignature = signature;
+        return true;
+    })();
+    slackCookieRulePromise = install;
+    try {
+        return await install;
+    } finally {
+        if (slackCookieRulePromise === install)
+            slackCookieRulePromise = null;
+    }
+}
+
+async function encodeAuthenticatedImageBlob(blob, mimeType) {
+    if (blob.size <= MAX_DIRECT_AUTHENTICATED_IMAGE_BYTES) {
+        const direct = await blobToDataUrl(blob, mimeType);
+        if (direct && direct.length <= MAX_AUTHENTICATED_ANALYSIS_URL_CHARS)
+            return direct;
+    }
+    if (typeof createImageBitmap !== 'function' || typeof OffscreenCanvas !== 'function')
+        return null;
+    let bitmap;
+    try {
+        bitmap = await createImageBitmap(blob);
+        const sourceWidth = bitmap.width || 0;
+        const sourceHeight = bitmap.height || 0;
+        const largest = Math.max(sourceWidth, sourceHeight);
+        if (!largest)
+            return null;
+        for (const maxDimension of [MAX_ANALYSIS_IMAGE_DIMENSION, 192]) {
+            const scale = Math.min(1, maxDimension / largest);
+            const width = Math.max(1, Math.round(sourceWidth * scale));
+            const height = Math.max(1, Math.round(sourceHeight * scale));
+            const canvas = new OffscreenCanvas(width, height);
+            const context = canvas.getContext('2d', { alpha: false });
+            if (!context)
+                continue;
+            context.drawImage(bitmap, 0, 0, width, height);
+            for (const quality of [0.44, 0.36]) {
+                const compressed = await canvas.convertToBlob({ type: 'image/jpeg', quality });
+                const dataUrl = await blobToDataUrl(compressed, 'image/jpeg');
+                if (dataUrl && dataUrl.length <= MAX_AUTHENTICATED_ANALYSIS_URL_CHARS)
+                    return dataUrl;
+            }
+        }
+    } catch (err) {
+        return null;
+    } finally {
+        if (bitmap && typeof bitmap.close === 'function')
+            bitmap.close();
+    }
+    return null;
+}
+
+async function blobToDataUrl(blob, mimeType) {
+    if (!blob || typeof blob.arrayBuffer !== 'function' || typeof btoa !== 'function')
+        return null;
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const parts = [];
+    for (let offset = 0; offset < bytes.length; offset += 0x8000)
+        parts.push(String.fromCharCode(...bytes.subarray(offset, offset + 0x8000)));
+    const normalizedType = /^image\/[a-z0-9.+-]+$/i.test(String(mimeType || ''))
+        ? String(mimeType).toLowerCase()
+        : 'image/jpeg';
+    const dataUrl = 'data:' + normalizedType + ';base64,' + btoa(parts.join(''));
+    return dataUrl.length <= MAX_ANALYSIS_URL_CHARS ? dataUrl : null;
 }
 
 function isRemoteImageCandidate(value) {

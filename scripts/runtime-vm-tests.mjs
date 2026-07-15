@@ -178,11 +178,16 @@ function testMediaStartupGate() {
   );
 }
 
-function createWorkerHarness(shared) {
+function createWorkerHarness(shared, options = {}) {
   const localWrites = [];
   const sessionWrites = [];
   const runtimeMessages = [];
   const tabMessages = [];
+  const authenticatedImageFetches = [];
+  const authenticatedImageCanvases = [];
+  let authenticatedImageBitmapCloses = 0;
+  const slackCookieQueries = [];
+  const slackSessionRuleUpdates = [];
   const queriedTabs = [
     { id: 11, url: "https://one.example/" },
     { id: 22, url: "https://two.example/" },
@@ -235,9 +240,55 @@ function createWorkerHarness(shared) {
     }
   }
 
+  class FakeOffscreenCanvas {
+    constructor(width, height) {
+      this.width = width;
+      this.height = height;
+      this.draws = [];
+      this.conversions = [];
+      authenticatedImageCanvases.push(this);
+    }
+    getContext(type, contextOptions) {
+      assert.equal(type, "2d");
+      return {
+        drawImage: (...args) => this.draws.push(args),
+        options: contextOptions,
+      };
+    }
+    async convertToBlob(conversion) {
+      this.conversions.push(clone(conversion));
+      const configuredLength = typeof options.compressedImageByteLengthForConversion === "function"
+        ? options.compressedImageByteLengthForConversion({
+          width: this.width,
+          height: this.height,
+          quality: conversion.quality,
+        })
+        : options.compressedImageByteLength;
+      return new Blob([new Uint8Array(configuredLength || 16_001)], {
+        type: "image/jpeg",
+      });
+    }
+  }
+
   const chrome = {
     action: { setIcon() {} },
+    cookies: {
+      getAll(query) {
+        slackCookieQueries.push(clone(query));
+        return Promise.resolve([
+          { name: "d", value: "fixture-session-cookie" },
+          { name: "b", value: "fixture-browser-cookie" },
+        ]);
+      },
+    },
+    declarativeNetRequest: {
+      updateSessionRules(update) {
+        slackSessionRuleUpdates.push(clone(update));
+        return Promise.resolve();
+      },
+    },
     runtime: {
+      id: "fixtureextensionid",
       getURL(path) {
         return `chrome-extension://fixture/${path || ""}`;
       },
@@ -275,9 +326,13 @@ function createWorkerHarness(shared) {
   };
 
   const context = vm.createContext({
+    Blob,
     URL,
+    Uint8Array,
+    btoa,
     Date: FakeDate,
     Map,
+    OffscreenCanvas: FakeOffscreenCanvas,
     Promise,
     Set,
     WebSocket: FakeWebSocket,
@@ -285,6 +340,33 @@ function createWorkerHarness(shared) {
     chrome,
     clearTimeout: timers.clearTimeout,
     console: { warn() {}, error() {}, log() {} },
+    createImageBitmap: async () => ({
+      width: 1024,
+      height: 768,
+      close() { authenticatedImageBitmapCloses++; },
+    }),
+    fetch: async (url, fetchOptions) => {
+      authenticatedImageFetches.push({ url, options: clone(fetchOptions) });
+      const byteLength = options.authenticatedImageByteLength || 8;
+      const bytes = new Uint8Array(byteLength);
+      bytes.set([137, 80, 78, 71, 13, 10, 26, 10].slice(0, byteLength));
+      const blob = new Blob([bytes], {
+        type: "image/png",
+      });
+      return {
+        ok: true,
+        status: 200,
+        type: "basic",
+        headers: {
+          get(name) {
+            if (String(name).toLowerCase() === "content-length") return String(blob.size);
+            if (String(name).toLowerCase() === "content-type") return blob.type;
+            return null;
+          },
+        },
+        blob: async () => blob,
+      };
+    },
     importScripts() {},
     self: { addEventListener() {} },
     setTimeout: timers.setTimeout,
@@ -294,6 +376,11 @@ function createWorkerHarness(shared) {
 ;globalThis.__wzmWorkerTest = {
   analyze,
   abortAnalyzeRequests,
+  blobToDataUrl,
+  encodeAuthenticatedImageBlob,
+  ensureSlackCookieRule,
+  prepareAuthenticatedImageUrl,
+  shouldPrepareAuthenticatedImageUrl,
   cacheGet,
   cachePut,
   clearAnalyzeCache,
@@ -311,6 +398,9 @@ function createWorkerHarness(shared) {
     CACHE_MAX,
     CACHE_TTL_MS,
     MAX_ANALYSIS_URL_CHARS,
+    MAX_AUTHENTICATED_ANALYSIS_URL_CHARS,
+    MAX_AUTHENTICATED_IMAGE_BYTES,
+    MAX_DIRECT_AUTHENTICATED_IMAGE_BYTES,
     MAX_NETWORK_URL_CHARS,
     MAX_PENDING_ANALYSES,
     MAX_PENDING_WAITERS,
@@ -331,6 +421,9 @@ function createWorkerHarness(shared) {
 
   return {
     api: context.__wzmWorkerTest,
+    authenticatedImageBitmapCloses: () => authenticatedImageBitmapCloses,
+    authenticatedImageCanvases,
+    authenticatedImageFetches,
     chrome,
     local,
     localWrites,
@@ -339,6 +432,8 @@ function createWorkerHarness(shared) {
     runtimeMessages,
     session,
     sessionWrites,
+    slackCookieQueries,
+    slackSessionRuleUpdates,
     tabMessages,
     timers,
     updatedEvent,
@@ -381,6 +476,10 @@ function createContentHarness(shared, options = {}) {
     destroy() { this.active = false; }
     updateSettings(next) { this.settings = next; }
     setAllowSafeDomain(toggle) { this.settings.allowSafeDomain = !!toggle; }
+    showCurrentImages() {
+      this.showCurrentImagesCalls = (this.showCurrentImagesCalls || 0) + 1;
+      return this.active;
+    }
   }
 
   const base = {
@@ -593,6 +692,81 @@ function testAnalyzeDedupTimeoutAndCache(harness) {
   }
   assert.equal(api.urlCache.size, api.constants.CACHE_MAX);
   assert(!api.urlCache.has("cache-0"));
+}
+
+async function testAuthenticatedSlackImagePreparation(harness) {
+  const {
+    api,
+    authenticatedImageBitmapCloses,
+    authenticatedImageCanvases,
+    authenticatedImageFetches,
+    slackCookieQueries,
+    slackSessionRuleUpdates,
+  } = harness;
+  const url = "https://files.slack.com/files-tmb/T08AXHLN4-F0BH41L9L11-token/image_1024.png";
+  const directDataUrl = await api.blobToDataUrl(
+    new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], { type: "image/png" }),
+    "image/png",
+  );
+  assert.equal(directDataUrl, "data:image/png;base64,iVBORw0KGgo=");
+  const preparedDataUrl = await api.prepareAuthenticatedImageUrl(url);
+  assert(preparedDataUrl.startsWith("data:image/jpeg;base64,"));
+  assert.equal(
+    api.constants.MAX_AUTHENTICATED_ANALYSIS_URL_CHARS,
+    12 * 1024,
+    "Authenticated media can exceed the classifier's reliable message boundary.",
+  );
+  assert(preparedDataUrl.length <= api.constants.MAX_AUTHENTICATED_ANALYSIS_URL_CHARS);
+  assert.equal(authenticatedImageCanvases.length, 1, "Large Slack media was not converted at the classifier-safe size.");
+  assert.deepEqual(
+    [authenticatedImageCanvases[0].width, authenticatedImageCanvases[0].height],
+    [256, 192],
+  );
+  assert.equal(authenticatedImageCanvases[0].conversions[0].quality, 0.44);
+  assert.equal(authenticatedImageCanvases[0].conversions.length, 1);
+  assert.equal(authenticatedImageBitmapCloses(), 1, "The decoded Slack bitmap was not released.");
+  assert.equal(slackCookieQueries.length, 1, "Authenticated Slack loading did not read the relevant cookies.");
+  assert.equal(slackSessionRuleUpdates.length, 1, "Authenticated Slack loading did not install one session rule.");
+  const cookieRule = slackSessionRuleUpdates[0].addRules[0];
+  assert.equal(cookieRule.action.type, "modifyHeaders");
+  assert.equal(cookieRule.action.requestHeaders[0].header, "cookie");
+  assert.equal(cookieRule.action.requestHeaders[0].operation, "set");
+  assert.deepEqual(cookieRule.condition.initiatorDomains, ["fixtureextensionid"]);
+  assert.deepEqual(cookieRule.condition.requestDomains, ["files.slack.com", "files-origin.slack.com"]);
+  authenticatedImageFetches.length = 0;
+  assert(api.shouldPrepareAuthenticatedImageUrl(url), "Slack private media was not eligible for signed-in loading.");
+  assert(
+    !api.shouldPrepareAuthenticatedImageUrl("https://images.example/image.png"),
+    "Ordinary public images were incorrectly routed through signed-in loading.",
+  );
+
+  const firstResults = [];
+  const secondResults = [];
+  api.analyze(url, "https://app.slack.com/client/workspace/channel", "people", "wss://fixture", value => {
+    firstResults.push(value);
+  });
+  api.analyze(url, "https://app.slack.com/client/workspace/channel", "women", "wss://fixture", value => {
+    secondResults.push(value);
+  });
+  await flushPromises();
+  await new Promise(resolve => setImmediate(resolve));
+  await flushPromises();
+
+  assert.equal(authenticatedImageFetches.length, 1, "Duplicate Slack analyses fetched private media more than once.");
+  assert.equal(authenticatedImageFetches[0].options.credentials, "include");
+  const pending = api.pendingCache.get(url);
+  assert(pending, "The original Slack URL was not retained as the pending cache key.");
+  assert.equal(pending.waiters.length, 2);
+  assert(
+    pending.request.url.startsWith("data:image/jpeg;base64,"),
+    `The classifier did not receive the authenticated Slack image data: ${pending.request.url}`,
+  );
+  assert(pending.request.url.length < api.constants.MAX_ANALYSIS_URL_CHARS);
+
+  api.completeRequest(pending.request, 0, true);
+  assert.deepEqual(firstResults, [0]);
+  assert.deepEqual(secondResults, [0]);
+  assert(api.cacheGet(url), "The authenticated classification was not cached under the original Slack URL.");
 }
 
 function testContentBackpressureAndManualRefresh(shared) {
@@ -856,9 +1030,26 @@ function testContentBackpressureAndManualRefresh(shared) {
   );
   assert.equal(canceledResults.length, 10, "Show Images did not immediately release active analysis slots.");
   assert(canceledResults.every(value => value === -1));
+  assert.equal(firstController.showCurrentImagesCalls, 1, "Show Images did not reveal the current controller records.");
+  assert.equal(firstController.active, true, "Show Images stopped the live filtering controller.");
+  assert.equal(harness.controllers.length, 1, "Show Images replaced the live filtering controller.");
   for (const message of activeMessages)
     message.callback(0);
   assert.equal(canceledResults.length, 10, "A late response completed a canceled analysis twice.");
+
+  let afterShowResult = null;
+  const beforeAfterShowAnalysis = harness.analysisMessages.length;
+  firstController.environment.analyze(
+    "https://images.example/lazy-after-show.png",
+    value => { afterShowResult = value; },
+  );
+  assert.equal(
+    harness.analysisMessages.length,
+    beforeAfterShowAnalysis + 1,
+    "Show Images left future lazy media outside the analysis scheduler.",
+  );
+  harness.analysisMessages.at(-1).callback(1);
+  assert.equal(afterShowResult, 1);
 
   let refreshResponse = null;
   listener(
@@ -868,15 +1059,14 @@ function testContentBackpressureAndManualRefresh(shared) {
   );
   assert(refreshResponse && refreshResponse.ok && refreshResponse.active);
   assert(
-    harness.classNames.has("wizmage-media-starting") && !harness.classNames.has("wizmage-show-html"),
-    "Restarting filtering did not restore the media prepaint gate.",
+    !harness.classNames.has("wizmage-media-starting") && harness.classNames.has("wizmage-show-html"),
+    "Refreshing an active controller unnecessarily restarted the document-wide media gate.",
   );
-  assert.equal(harness.controllers.length, 2, "Refresh Settings left the manual Show Images latch active.");
+  assert.equal(harness.controllers.length, 1, "Refresh Settings replaced the controller kept alive by Show Images.");
   assert.equal(harness.settingsMessages.at(-1).pageUrl, "https://one.example/after-history");
 
-  const secondController = harness.controllers.at(-1);
   const beforeNewAnalysis = harness.analysisMessages.length;
-  secondController.environment.analyze("https://images.example/after-restart.png", () => {});
+  firstController.environment.analyze("https://images.example/after-restart.png", () => {});
   assert.equal(harness.analysisMessages.length, beforeNewAnalysis + 1, "Canceled requests still occupied frame analysis slots.");
   harness.analysisMessages.at(-1).callback(0);
 
@@ -989,6 +1179,53 @@ async function testSettingsWritesAndBroadcast(harness) {
   assert.equal(new Set(tabMessages.map(item => item.message.revision)).size, 1);
   assert.equal(api.tabRefreshSuppressions.size, 0, "A global UI settings write left a stale tab-refresh suppression.");
 
+  runtimeMessages.length = 0;
+  tabMessages.length = 0;
+  local.data.allowSafeDomains = ["google.com", "unrelated.example"];
+  const previousAllowSafeDomains = clone(local.data.allowSafeDomains);
+  const allowSafeResponse = await dispatchWorkerMessage(
+    harness,
+    { r: "allowSafeForDomain", url: "https://www.google.com/search?q=compiler", toggle: false },
+    { url: "chrome-extension://fixture/popup.htm" },
+  );
+  assert.equal(allowSafeResponse.ok, true, "The safe-domain removal route failed.");
+  assert.deepEqual(
+    local.data.allowSafeDomains,
+    ["unrelated.example"],
+    "Unchecking a subdomain did not remove its inherited safe-domain exception.",
+  );
+  assert.equal(
+    tabMessages.length,
+    queriedTabs.length,
+    "The safe-domain route acknowledged success before refreshing open content tabs.",
+  );
+  assert(
+    tabMessages.every(item => item.message.r === "refreshSettings"
+      && item.message.changedKeys.includes("allowSafeDomains")),
+    "The safe-domain route sent the wrong content update.",
+  );
+  const explicitSafeRefreshCount = tabMessages.length;
+  await api.reconcileStorageChange(
+    {
+      allowSafeDomains: {
+        oldValue: previousAllowSafeDomains,
+        newValue: clone(local.data.allowSafeDomains),
+      },
+    },
+    "local",
+  );
+  await flushPromises();
+  assert.equal(
+    tabMessages.length,
+    explicitSafeRefreshCount,
+    "The safe-domain storage event duplicated the route-owned content refresh.",
+  );
+  assert.equal(
+    api.tabRefreshSuppressions.size,
+    0,
+    "The safe-domain route left a stale storage-refresh suppression.",
+  );
+
   const closeOnClickPrevious = clone(local.data.settings);
   const settingsWritesBeforeCloseOnClick = localWrites.filter(write => write.settings).length;
   const closeOnClickResponse = await dispatchWorkerMessage(
@@ -1100,6 +1337,12 @@ export async function runRuntimeVmTests() {
   const shared = loadShared();
   testMediaStartupGate();
   testSharedHelpers(shared);
+  const authenticatedHarness = createWorkerHarness(shared, {
+    authenticatedImageByteLength: 360_801,
+    compressedImageByteLengthForConversion: ({ width, quality }) =>
+      width === 256 && quality === 0.44 ? 8_000 : 60_000,
+  });
+  await testAuthenticatedSlackImagePreparation(authenticatedHarness);
   const harness = createWorkerHarness(shared);
   testAnalyzeBounds(harness);
   testAnalyzeDedupTimeoutAndCache(harness);
@@ -1107,7 +1350,7 @@ export async function runRuntimeVmTests() {
   await testSettingsWritesAndBroadcast(harness);
   await testNavigationRefresh(harness);
   await testInvalidUrlListMutation(harness);
-  return { sharedAssertions: 20, workerAssertions: 68, contentAssertions: 72 };
+  return { sharedAssertions: 20, workerAssertions: 100, contentAssertions: 79 };
 }
 
 const invokedPath = process.argv[1] ? resolve(process.argv[1]) : "";

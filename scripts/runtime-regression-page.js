@@ -3,6 +3,7 @@
 
     const resultNode = document.getElementById('wzm-test-result');
     const completedChecks = [];
+    const SHADOW_HOST_PENDING_ATTRIBUTE = 'data-wzm-shadow-pending';
     const VISUAL_ATTRIBUTES = [
         'data-wzm-hide',
         'data-wzm-locked',
@@ -204,6 +205,7 @@
             makeSettings('all'),
             makeEnvironment(function (_url, callback) { callback(1); })
         );
+        const mediaGateStartedAt = performance.now();
         controller.start();
         assert(
             document.documentElement.classList.contains('wizmage-media-starting') &&
@@ -211,6 +213,9 @@
             'Starting an active controller disabled the media prepaint gate'
         );
         assert(controller.initialMediaGateTimeout != null, 'The active media gate has no bounded fail-open');
+        controller.trackShadowHostReadiness({}, null, null);
+        controller.markShadowRootScanComplete({ host: {} });
+        mark('non-element shadow hosts are ignored safely');
 
         assert(
             rootStyle.getPropertyValue('--wzm-pattern-0').includes('/extension/pattern0.png'),
@@ -225,9 +230,15 @@
             () => !document.documentElement.classList.contains('wizmage-media-starting'),
             'The controller did not release the initial media gate after scanning'
         );
+        const mediaGateDuration = performance.now() - mediaGateStartedAt;
+        assert(
+            mediaGateDuration >= 1650,
+            'The initial media gate released before delayed SPA media could hydrate: ' +
+                Math.round(mediaGateDuration) + 'ms'
+        );
         assert(controller.initialMediaGateTimeout == null, 'A completed initial scan retained its fail-open timer');
         assert(recordFor(controller, singleImage, 'img'), 'The initial image has no controller record');
-        mark('ordinary one-image page is filtered');
+        mark('ordinary one-image page is filtered through the SPA hydration window');
 
         const largeTree = document.createElement('div');
         const largeCanvasCount = 300;
@@ -379,13 +390,16 @@
         };
         document.body.addEventListener('click', videoBubbleListener);
         document.body.appendChild(video);
-        await delay(80);
+        await waitFor(
+            () => video.getAttribute('data-wzm-locked') === '1' &&
+                video.getAttribute('data-wzm-pattern-bg-img') === '1',
+            'A video poster image was not filtered'
+        );
         video.click();
         assert(video.controls, 'Video controls were disabled');
-        assert(hasNoVisualAttributes(video), 'Video received a Wizmage lock or overlay attribute');
         assert(getComputedStyle(video).pointerEvents !== 'none', 'Video pointer events were disabled');
         assert(videoClicks === 1 && videoBubbleClicks === 1, 'Video click behavior was intercepted');
-        mark('video remains functional and unlocked');
+        mark('video poster is filtered while video controls remain functional');
 
         document.body.style.backgroundImage = 'url("' + imageUrl('body-background.png') + '")';
 
@@ -418,6 +432,39 @@
         );
         mark('dynamic media is concealed synchronously');
 
+        const dynamicBackground = document.createElement('div');
+        dynamicBackground.id = 'dynamic-background';
+        dynamicBackground.style.width = '120px';
+        dynamicBackground.style.height = '120px';
+        dynamicBackground.style.backgroundImage = 'url("' + imageUrl('dynamic-background.png') + '")';
+        document.body.appendChild(dynamicBackground);
+        controller.onMutations([{
+            type: 'childList',
+            target: document.body,
+            addedNodes: [dynamicBackground],
+            removedNodes: []
+        }]);
+        const dynamicBackgroundPendingState = {
+            backgroundImage: getComputedStyle(dynamicBackground).backgroundImage,
+            backgroundSize: getComputedStyle(dynamicBackground).backgroundSize,
+            pending: dynamicBackground.getAttribute('data-wzm-media-pending'),
+            pattern: dynamicBackground.getAttribute('data-wzm-pattern-bg-img')
+        };
+        assert(
+            dynamicBackgroundPendingState.backgroundImage.includes('dynamic-background.png') &&
+                dynamicBackgroundPendingState.backgroundSize === '0px 0px' &&
+                dynamicBackgroundPendingState.pending === '1' &&
+                dynamicBackgroundPendingState.pattern == null,
+            'A dynamically inserted CSS image exposed its raw pixels before inspection: ' +
+                JSON.stringify(dynamicBackgroundPendingState)
+        );
+        await waitFor(
+            () => dynamicBackground.getAttribute('data-wzm-pattern-bg-img') === '1' &&
+                !dynamicBackground.hasAttribute('data-wzm-media-pending'),
+            'A dynamically inserted CSS image did not settle into its filtered state'
+        );
+        mark('dynamic CSS media is concealed synchronously');
+
         const sourceSwapImage = document.createElement('img');
         sourceSwapImage.id = 'source-swap-image';
         sourceSwapImage.alt = 'source mutation fixture';
@@ -425,8 +472,10 @@
         sourceSwapImage.style.width = '20px';
         sourceSwapImage.style.height = '20px';
         document.body.appendChild(sourceSwapImage);
+        await delay(0);
         await waitFor(
-            () => !controller.hasScanWork() && !sourceSwapImage.hasAttribute('data-wzm-media-pending'),
+            () => !controller.hasScanWork() &&
+                !sourceSwapImage.hasAttribute('data-wzm-media-pending'),
             'The source-mutation baseline image did not finish inspection'
         );
         assert(!sourceSwapImage.hasAttribute('data-wzm-locked'), 'The source-mutation baseline was unexpectedly blocked');
@@ -545,6 +594,55 @@
         const customHost = document.createElement('wzm-fixture-card');
         document.body.appendChild(customHost);
         const shadowImage = customHost.shadowRoot.getElementById('shadow-image');
+
+        const syndigoHost = document.createElement('syndigo-powerpage');
+        syndigoHost.id = 'wzm-syndigo-host';
+        syndigoHost.style.display = 'block';
+        syndigoHost.style.width = '120px';
+        syndigoHost.style.height = '120px';
+        let syndigoReleasedWithBackgroundCover = false;
+        let syndigoBackground = null;
+        const syndigoReleaseObserver = new MutationObserver(mutations => {
+            for (const mutation of mutations) {
+                if (mutation.attributeName === SHADOW_HOST_PENDING_ATTRIBUTE &&
+                    !syndigoHost.hasAttribute(SHADOW_HOST_PENDING_ATTRIBUTE)) {
+                    syndigoReleasedWithBackgroundCover = !!(syndigoBackground &&
+                        syndigoBackground.getAttribute('data-wzm-pattern-bg-img') === '1');
+                }
+            }
+        });
+        syndigoReleaseObserver.observe(syndigoHost, { attributes: true });
+        document.body.appendChild(syndigoHost);
+        await waitFor(
+            () => syndigoHost.getAttribute(SHADOW_HOST_PENDING_ATTRIBUTE) === '1' &&
+                getComputedStyle(syndigoHost).opacity === '0',
+            'A Syndigo shadow host was not concealed before its shadow root attached'
+        );
+        const genericCustomHost = document.createElement('wzm-generic-shadow-host');
+        genericCustomHost.textContent = 'generic custom element';
+        document.body.appendChild(genericCustomHost);
+        await delay(20);
+        assert(
+            !genericCustomHost.hasAttribute(SHADOW_HOST_PENDING_ATTRIBUTE) &&
+                getComputedStyle(genericCustomHost).opacity !== '0',
+            'The early shadow host gate concealed a generic custom element'
+        );
+        genericCustomHost.remove();
+        const syndigoShadow = syndigoHost.attachShadow({ mode: 'open' });
+        const syndigoImage = document.createElement('img');
+        syndigoImage.id = 'syndigo-shadow-image';
+        syndigoImage.src = imageUrl('syndigo-shadow.png');
+        syndigoImage.style.width = '120px';
+        syndigoImage.style.height = '120px';
+        syndigoShadow.appendChild(syndigoImage);
+        for (let index = 0; index < 240; index++)
+            syndigoShadow.appendChild(document.createElement('span'));
+        syndigoBackground = document.createElement('div');
+        syndigoBackground.id = 'syndigo-shadow-background';
+        syndigoBackground.style.width = '120px';
+        syndigoBackground.style.height = '120px';
+        syndigoBackground.style.backgroundImage = 'url("' + imageUrl('syndigo-background.png') + '")';
+        syndigoShadow.appendChild(syndigoBackground);
 
         const lateGeneric = document.createElement('section');
         lateGeneric.id = 'late-generic';
@@ -865,6 +963,26 @@
                 !!customHost.shadowRoot.querySelector('[data-wzm-shadow-style="1"]'),
             'An image in an open custom-element shadow root was not discovered'
         );
+        await waitFor(
+            () => !!syndigoShadow.querySelector('[data-wzm-shadow-style="1"]') &&
+                (syndigoImage.getAttribute('data-wzm-media-pending') === '1' ||
+                    syndigoImage.getAttribute('data-wzm-locked') === '1'),
+            'The Syndigo shadow image was not gated before the host became eligible to show',
+            7000
+        );
+        await waitFor(
+            () => syndigoImage.getAttribute('data-wzm-locked') === '1' &&
+                syndigoBackground.getAttribute('data-wzm-pattern-bg-img') === '1' &&
+                !syndigoHost.hasAttribute(SHADOW_HOST_PENDING_ATTRIBUTE),
+            'The Syndigo host was not released after its shadow image was filtered',
+            7000
+        );
+        assert(
+            syndigoReleasedWithBackgroundCover,
+            'The Syndigo host was released before its shadow background placeholder was covered'
+        );
+        syndigoReleaseObserver.disconnect();
+        mark('Syndigo shadow host is concealed until its shadow media gate is ready');
 
         const opaqueHost = document.createElement('div');
         const opaqueRealShadow = opaqueHost.attachShadow({ mode: 'closed' });
@@ -1152,6 +1270,10 @@
             !document.documentElement.classList.contains('wizmage-media-starting'),
             'Destroying left the initial media gate active'
         );
+        assert(
+            !syndigoHost.hasAttribute(SHADOW_HOST_PENDING_ATTRIBUTE),
+            'Destroy retained the Syndigo shadow-host pending marker'
+        );
         assert(!controller.active && !controller.started, 'Destroy left the controller active');
         assert(controller.records.size === 0, 'Destroy retained media records');
         assert(controller.pendingElements.size === 0 && controller.scanJobs.length === 0, 'Destroy retained pending scan work');
@@ -1172,6 +1294,7 @@
         assert(!rootStyle.getPropertyValue('--wzm-pattern-1'), 'Destroy retained an extension-owned root pattern variable');
         assert(hasNoVisualAttributes(singleImage), 'Destroy left an image visually locked');
         assert(hasNoVisualAttributes(dynamicImage), 'Destroy left a reinserted image visually locked');
+        assert(hasNoVisualAttributes(dynamicBackground), 'Destroy left a CSS image visually locked');
         mark('destroy clears records, observers, listeners, and scheduled work');
 
         document.body.removeEventListener('click', bubbleListener);
@@ -1260,6 +1383,165 @@
 
         controller.destroy({ show: true });
         image.remove();
+        document.body.replaceChildren(resultNode);
+    }
+
+    async function runShowCurrentImagesCheck() {
+        const Controller = globalThis.WizmageContentController;
+        const currentImage = document.createElement('img');
+        currentImage.alt = 'current image reveal fixture';
+        currentImage.src = imageUrl('show-current-existing.png');
+        currentImage.style.width = '120px';
+        currentImage.style.height = '120px';
+        document.body.appendChild(currentImage);
+
+        const controller = new Controller(
+            window,
+            makeSettings('all'),
+            makeEnvironment(function (_url, callback) { callback(1); })
+        );
+        controller.start();
+        await waitFor(() => isBlocked(currentImage), 'The current-image fixture was not initially blocked');
+        const observerCount = controller.observers.size;
+        assert(controller.showCurrentImages(), 'Show Images did not acknowledge the active controller');
+        const currentRecord = recordFor(controller, currentImage, 'img');
+        assert(
+            controller.active && controller.observers.size === observerCount && !isBlocked(currentImage) &&
+                currentRecord && currentRecord.userAllowedKey === currentRecord.key,
+            'Show Images did not reveal the current image while preserving its observer'
+        );
+
+        const lazyImage = document.createElement('img');
+        lazyImage.alt = 'lazy image after reveal fixture';
+        lazyImage.src = imageUrl('show-current-lazy.png');
+        lazyImage.style.width = '120px';
+        lazyImage.style.height = '120px';
+        document.body.appendChild(lazyImage);
+        await waitFor(
+            () => isBlocked(lazyImage) && !!recordFor(controller, lazyImage, 'img'),
+            'An image inserted after Show Images was not filtered'
+        );
+        assert(!isBlocked(currentImage), 'Filtering a later image reblocked the user-revealed current image');
+        mark('Show Images reveals current media while later lazy media remains filtered');
+
+        controller.destroy({ show: true });
+        currentImage.remove();
+        lazyImage.remove();
+        document.body.replaceChildren(resultNode);
+    }
+
+    async function runAllowSafeDomainToggleCheck() {
+        const Controller = globalThis.WizmageContentController;
+        const analyzer = makePendingAnalyzer();
+        const safeImage = document.createElement('img');
+        safeImage.alt = 'safe compiler diagram fixture';
+        safeImage.src = imageUrl('allow-safe-domain-safe.png');
+        safeImage.style.width = '120px';
+        safeImage.style.height = '120px';
+        const unsafeImage = document.createElement('img');
+        unsafeImage.alt = 'unsafe compiler diagram fixture';
+        unsafeImage.src = imageUrl('allow-safe-domain-unsafe.png');
+        unsafeImage.style.width = '120px';
+        unsafeImage.style.height = '120px';
+        const safeBackground = document.createElement('div');
+        safeBackground.style.width = '120px';
+        safeBackground.style.height = '120px';
+        safeBackground.style.backgroundImage = 'url("' + imageUrl('allow-safe-domain-background.png') + '")';
+        const revealedSafeImage = document.createElement('img');
+        revealedSafeImage.alt = 'revealed safe compiler diagram fixture';
+        revealedSafeImage.src = imageUrl('allow-safe-domain-revealed-safe.png');
+        revealedSafeImage.style.width = '120px';
+        revealedSafeImage.style.height = '120px';
+        document.body.append(safeImage, unsafeImage, safeBackground, revealedSafeImage);
+
+        const settings = makeSettings('people');
+        settings.alwaysBlock = true;
+        settings.allowSafeDomain = false;
+        const controller = new Controller(window, settings, makeEnvironment(analyzer.analyze));
+        controller.start();
+        await waitFor(
+            () => analyzer.has('allow-safe-domain-safe.png') && analyzer.has('allow-safe-domain-unsafe.png') &&
+                analyzer.has('allow-safe-domain-background.png') &&
+                analyzer.has('allow-safe-domain-revealed-safe.png'),
+            'The safe-domain fixtures were not analyzed'
+        );
+        assert(analyzer.deliver('allow-safe-domain-safe.png', 0) === 1, 'The cached-safe fixture callback was unavailable');
+        assert(analyzer.deliver('allow-safe-domain-unsafe.png', 1) === 1, 'The unsafe fixture callback was unavailable');
+        assert(analyzer.deliver('allow-safe-domain-background.png', 0) === 1, 'The cached-safe background callback was unavailable');
+        assert(
+            analyzer.deliver('allow-safe-domain-revealed-safe.png', 0) === 1,
+            'The revealed cached-safe fixture callback was unavailable'
+        );
+        await waitFor(
+            () => safeImage.getAttribute('data-wzm-always') === '1' &&
+                unsafeImage.getAttribute('data-wzm-locked') === '1' &&
+                safeBackground.getAttribute('data-wzm-always') === '1' &&
+                revealedSafeImage.getAttribute('data-wzm-always') === '1',
+            'Always Block did not conceal both safe and unsafe fixtures'
+        );
+        await waitFor(
+            () => !document.documentElement.classList.contains('wizmage-media-starting'),
+            'The initial safe-domain fixture gate did not finish before its presentation toggle'
+        );
+        const revealedSafeRecord = recordFor(controller, revealedSafeImage, 'img');
+        assert(revealedSafeRecord, 'The revealed cached-safe fixture retained no media record');
+        controller.showRecord(revealedSafeRecord, true, false);
+        assert(
+            revealedSafeRecord.userAllowedKey === revealedSafeRecord.key &&
+                !revealedSafeImage.hasAttribute('data-wzm-locked'),
+            'The cached-safe fixture could not enter the user-revealed state'
+        );
+        const analysisCount = analyzer.requests.length;
+
+        controller.setAllowSafeDomain(true);
+        assert(
+            !document.documentElement.classList.contains('wizmage-media-starting') &&
+                !safeImage.hasAttribute('data-wzm-locked') &&
+                !safeBackground.hasAttribute('data-wzm-pattern-bg-img') &&
+                !revealedSafeImage.hasAttribute('data-wzm-locked') &&
+                unsafeImage.getAttribute('data-wzm-locked') === '1',
+            'The cached-safe exception was not applied synchronously without a global gate'
+        );
+        await waitFor(
+            () => !safeImage.hasAttribute('data-wzm-locked') &&
+                !safeImage.hasAttribute('data-wzm-pattern-bg-img') &&
+                !safeImage.hasAttribute('data-wzm-media-pending') &&
+                !safeBackground.hasAttribute('data-wzm-pattern-bg-img') &&
+                !revealedSafeImage.hasAttribute('data-wzm-locked') &&
+                unsafeImage.getAttribute('data-wzm-locked') === '1',
+            'Excluding the website from Safe Block did not immediately show only cached-safe media'
+        );
+        assert(analyzer.requests.length === analysisCount, 'Enabling the safe-domain exception reanalyzed settled media');
+        assert(
+            !document.documentElement.classList.contains('wizmage-media-starting'),
+            'The cached-safe presentation toggle started a document-wide media gate'
+        );
+
+        controller.setAllowSafeDomain(false);
+        assert(
+            !document.documentElement.classList.contains('wizmage-media-starting') &&
+                safeImage.getAttribute('data-wzm-always') === '1' &&
+                safeBackground.getAttribute('data-wzm-always') === '1' &&
+                revealedSafeImage.getAttribute('data-wzm-always') === '1',
+            'Removing the cached-safe exception was not applied synchronously without a global gate'
+        );
+        await waitFor(
+            () => safeImage.getAttribute('data-wzm-always') === '1' &&
+                safeImage.getAttribute('data-wzm-locked') === '1' &&
+                safeBackground.getAttribute('data-wzm-always') === '1' &&
+                revealedSafeImage.getAttribute('data-wzm-always') === '1' &&
+                revealedSafeImage.getAttribute('data-wzm-locked') === '1' &&
+                unsafeImage.getAttribute('data-wzm-locked') === '1',
+            'Removing the safe-domain exception did not immediately reblock cached-safe media'
+        );
+        assert(analyzer.requests.length === analysisCount, 'Disabling the safe-domain exception reanalyzed settled media');
+        mark('safe-domain toggle immediately shows and reblocks cached-safe media');
+
+        controller.destroy({ show: true });
+        safeImage.remove();
+        unsafeImage.remove();
+        safeBackground.remove();
+        revealedSafeImage.remove();
         document.body.replaceChildren(resultNode);
     }
 
@@ -1748,6 +2030,8 @@
         await runDiscoveryAndCleanupChecks();
         await runSyntheticImageDocumentCheck();
         await runThresholdSettingsCheck();
+        await runShowCurrentImagesCheck();
+        await runAllowSafeDomainToggleCheck();
         await runAnalysisCancellationCheck();
         await runAsyncGenerationChecks();
         finish('pass');

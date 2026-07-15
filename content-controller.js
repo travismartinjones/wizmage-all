@@ -14,9 +14,15 @@
     const STYLE_MEDIA_PROPERTIES = [
         'backgroundImage', 'maskImage', 'webkitMaskImage', 'borderImageSource', 'listStyleImage', 'content'
     ];
-    const DIRECT_MEDIA_SELECTOR = 'img,input[type="image"],canvas,svg,image,object,embed';
+    const DIRECT_MEDIA_SELECTOR = 'img,input[type="image"],canvas,svg,image,object,embed,video';
+    const INLINE_STYLE_MEDIA_SELECTOR = '[style*="url("]';
     const MEDIA_PENDING_ATTRIBUTE = 'data-wzm-media-pending';
+    const SHADOW_HOST_PENDING_ATTRIBUTE = 'data-wzm-shadow-pending';
+    const EARLY_SHADOW_MEDIA_HOST_SELECTOR = 'syndigo-powerpage';
+    const EARLY_SHADOW_MEDIA_HOSTS = new Set(['syndigo-powerpage']);
     const MEDIA_PENDING_FAIL_OPEN_MS = 5000;
+    const SHADOW_HOST_PENDING_FAIL_OPEN_MS = 10000;
+    const INITIAL_MEDIA_GATE_MIN_MS = 1750;
     const INITIAL_MEDIA_GATE_FAIL_OPEN_MS = 10000;
     const VISUAL_ATTRIBUTES = [
         'data-wzm-hide', 'data-wzm-locked', 'data-wzm-pattern-bg-img', 'data-wzm-shade',
@@ -32,7 +38,7 @@
     ];
     const VISUAL_ATTRIBUTE_SET = new Set(VISUAL_ATTRIBUTES);
     const SKIP_BACKGROUND_TAGS = /^(?:HEAD|META|LINK|STYLE|SCRIPT|NOSCRIPT|TEMPLATE|SOURCE|TRACK|BR|HR)$/;
-    const REPLACED_KINDS = new Set(['img', 'input-image', 'canvas', 'svg', 'object', 'embed']);
+    const REPLACED_KINDS = new Set(['img', 'input-image', 'canvas', 'svg', 'object', 'embed', 'video-poster']);
     const MAX_ACTIVE_SCAN_JOBS = 128;
     const MAINTENANCE_INTERVAL_MS = 1000;
     const MAX_LATE_SHADOW_HOSTS = 1024;
@@ -119,8 +125,13 @@
             this.pendingElements = new Set();
             this.pendingMediaElements = new Map();
             this.pendingMediaTimeout = null;
+            this.pendingShadowHosts = new Map();
+            this.pendingShadowHostTimeout = null;
+            this.shadowPendingReleaseLinks = new WeakSet();
             this.inspectedMediaUrls = new WeakMap();
             this.initialMediaGatePending = false;
+            this.initialMediaGateStartedAt = 0;
+            this.initialMediaGateMinimumTimeout = null;
             this.initialMediaGateTimeout = null;
             this.listeners = [];
             this.timeouts = new Set();
@@ -160,6 +171,7 @@
                     this.createEye();
                     if (this.doc.body) {
                         this.markPendingMediaTree(this.doc.body, true);
+                        this.markPendingShadowHostTree(this.doc.body, true);
                         this.queueTree(this.doc.body, true);
                     }
                     else {
@@ -181,6 +193,7 @@
             this.applyPatternVariables(this.doc);
             this.createEye();
             this.markPendingMediaTree(this.doc.documentElement, true);
+            this.markPendingShadowHostTree(this.doc.documentElement, true);
             this.observeRoot(this.doc);
             this.observeCssResources();
             this.installLifecycleListeners();
@@ -232,8 +245,16 @@
             }
             this.pendingMediaElements.clear();
             this.pendingMediaTimeout = null;
+            for (const element of this.pendingShadowHosts.keys()) {
+                try { element.removeAttribute(SHADOW_HOST_PENDING_ATTRIBUTE); } catch (err) { /* ignore */ }
+            }
+            this.pendingShadowHosts.clear();
+            this.pendingShadowHostTimeout = null;
+            this.shadowPendingReleaseLinks = new WeakSet();
             this.inspectedMediaUrls = new WeakMap();
             this.initialMediaGatePending = false;
+            this.initialMediaGateStartedAt = 0;
+            this.initialMediaGateMinimumTimeout = null;
             this.initialMediaGateTimeout = null;
             this.ownWrites = new WeakMap();
             this.pendingElements.clear();
@@ -288,11 +309,10 @@
                 || previous.alwaysBlock !== this.settings.alwaysBlock;
             const classifierChanged = previous.blockTarget !== this.settings.blockTarget
                 || previous.serverUrl !== this.settings.serverUrl;
-            const presentationChanged = candidacyChanged
-                || previous.allowSafeDomain !== this.settings.allowSafeDomain;
+            const safeDomainChanged = previous.allowSafeDomain !== this.settings.allowSafeDomain;
             if (this.eye)
                 this.eye.style.display = 'none';
-            if (classifierChanged || presentationChanged) {
+            if (classifierChanged || candidacyChanged) {
                 this.startMediaGateCycle();
                 for (const record of Array.from(this.records))
                     this.markMediaPending(record.element);
@@ -313,10 +333,10 @@
                     this.queueElement(record.element);
                 }
             }
-            else if (presentationChanged) {
-                // Size, always-block, and safe-domain changes do not alter the
-                // classifier result. Preserve settled URL decisions and only
-                // recompute whether/how each record should be shown.
+            else if (candidacyChanged) {
+                // Size and always-block changes do not alter the classifier
+                // result. Preserve settled URL decisions and recompute whether
+                // each existing record is still eligible/presented.
                 for (const record of Array.from(this.records))
                     this.queueElement(record.element);
             }
@@ -326,7 +346,9 @@
                 // remain permanently outside the filter.
                 this.queueAllObservedRoots();
             }
-            if (!classifierChanged && !presentationChanged
+            if (safeDomainChanged && !classifierChanged && !candidacyChanged)
+                this.applySafeDomainPresentation();
+            if (!classifierChanged && !candidacyChanged
                 && previous.noPattern !== this.settings.noPattern) {
                 for (const record of this.records) {
                     if (record.blocked)
@@ -341,51 +363,128 @@
             this.updateSettings(Object.assign({}, this.settings, { allowSafeDomain: !!toggle }));
         }
 
+        showCurrentImages() {
+            if (!this.active)
+                return false;
+            this.pruneDisconnectedRecords();
+            for (const record of Array.from(this.records)) {
+                if (!record.element || !record.element.isConnected || record.element.ownerDocument !== this.doc)
+                    continue;
+                this.showRecord(record, true, false);
+                this.clearMediaPending(record.element);
+            }
+            this.revealRoot();
+            this.hideEye();
+            return true;
+        }
+
+        applySafeDomainPresentation() {
+            const enforceSafeBlock = this.settings.alwaysBlock && !this.settings.allowSafeDomain;
+            for (const record of Array.from(this.records)) {
+                if (!record || record.key == null)
+                    continue;
+                const isCachedSafe = record.safeKey === record.key
+                    && record.safeRevision === this.settingsRevision;
+                if (record.userAllowedKey === record.key && !(enforceSafeBlock && isCachedSafe)) {
+                    this.showRecord(record, false, false);
+                    continue;
+                }
+                if (!isCachedSafe)
+                    continue;
+                if (enforceSafeBlock) {
+                    // Re-enabling Safe Block for the website supersedes an older
+                    // one-image reveal, but only for media already proven safe.
+                    record.userAllowedKey = null;
+                    this.applyVisual(record, 'always');
+                }
+                else {
+                    this.showRecord(record, false, false);
+                }
+            }
+        }
+
         revealRoot() {
+            this.initialMediaGatePending = false;
+            this.initialMediaGateStartedAt = 0;
+            this.cancelInitialMediaGateMinimumTimeout();
             this.cancelInitialMediaGateTimeout();
-            const gate = this.win && this.win.WizmageMediaGate;
-            if (gate && typeof gate.release === 'function')
-                gate.release();
-            else if (this.doc.documentElement)
-                this.doc.documentElement.classList.remove('wizmage-media-starting');
-            if (this.doc.documentElement)
-                this.doc.documentElement.classList.add('wizmage-show-html');
+            if (!this.invokeMediaGate('release'))
+                this.setRootClass('wizmage-media-starting', false);
+            this.setRootClass('wizmage-show-html', true);
         }
 
         startMediaGateCycle() {
+            this.cancelInitialMediaGateMinimumTimeout();
             this.cancelInitialMediaGateTimeout();
             this.initialMediaGatePending = true;
-            const gate = this.win && this.win.WizmageMediaGate;
-            if (gate && typeof gate.claim === 'function')
-                gate.claim();
-            else if (gate && typeof gate.activate === 'function')
-                gate.activate();
-            else if (this.doc.documentElement)
-                this.doc.documentElement.classList.add('wizmage-media-starting');
-            if (this.doc.documentElement)
-                this.doc.documentElement.classList.remove('wizmage-show-html');
+            this.initialMediaGateStartedAt = this.now();
+            if (!this.invokeMediaGate('claim') && !this.invokeMediaGate('activate'))
+                this.setRootClass('wizmage-media-starting', true);
+            this.setRootClass('wizmage-show-html', false);
             this.initialMediaGateTimeout = this.setTrackedTimeout(() => {
                 this.initialMediaGateTimeout = null;
                 this.initialMediaGatePending = false;
-                const activeGate = this.win && this.win.WizmageMediaGate;
-                if (activeGate && typeof activeGate.release === 'function')
-                    activeGate.release();
-                else if (this.doc.documentElement)
-                    this.doc.documentElement.classList.remove('wizmage-media-starting');
+                this.initialMediaGateStartedAt = 0;
+                this.cancelInitialMediaGateMinimumTimeout();
+                if (!this.invokeMediaGate('release'))
+                    this.setRootClass('wizmage-media-starting', false);
             }, INITIAL_MEDIA_GATE_FAIL_OPEN_MS);
         }
 
         finishInitialMediaGate() {
             if (!this.initialMediaGatePending || !this.active || this.doc.readyState === 'loading' || this.hasScanWork())
                 return false;
+            const elapsed = this.now() - this.initialMediaGateStartedAt;
+            if (elapsed < INITIAL_MEDIA_GATE_MIN_MS) {
+                if (this.initialMediaGateMinimumTimeout == null) {
+                    this.initialMediaGateMinimumTimeout = this.setTrackedTimeout(() => {
+                        this.initialMediaGateMinimumTimeout = null;
+                        this.finishInitialMediaGate();
+                    }, INITIAL_MEDIA_GATE_MIN_MS - elapsed);
+                }
+                return false;
+            }
             this.initialMediaGatePending = false;
+            this.initialMediaGateStartedAt = 0;
+            this.cancelInitialMediaGateMinimumTimeout();
             this.cancelInitialMediaGateTimeout();
-            const gate = this.win && this.win.WizmageMediaGate;
-            if (gate && typeof gate.release === 'function')
-                gate.release();
-            else if (this.doc.documentElement)
-                this.doc.documentElement.classList.remove('wizmage-media-starting');
+            if (!this.invokeMediaGate('release'))
+                this.setRootClass('wizmage-media-starting', false);
             return true;
+        }
+
+        invokeMediaGate(method) {
+            const gate = this.win && this.win.WizmageMediaGate;
+            if (!gate || typeof gate[method] !== 'function')
+                return false;
+            const root = this.doc.documentElement;
+            const before = root && root.getAttribute ? root.getAttribute('class') : null;
+            gate[method]();
+            if (root && root.getAttribute) {
+                const after = root.getAttribute('class');
+                if (after !== before)
+                    this.rememberOwnWrite(root, 'class', after);
+            }
+            return true;
+        }
+
+        setRootClass(name, active) {
+            const root = this.doc.documentElement;
+            if (!root)
+                return;
+            const before = root.getAttribute('class');
+            root.classList.toggle(name, !!active);
+            const after = root.getAttribute('class');
+            if (after !== before)
+                this.rememberOwnWrite(root, 'class', after);
+        }
+
+        cancelInitialMediaGateMinimumTimeout() {
+            if (this.initialMediaGateMinimumTimeout == null)
+                return;
+            this.win.clearTimeout(this.initialMediaGateMinimumTimeout);
+            this.timeouts.delete(this.initialMediaGateMinimumTimeout);
+            this.initialMediaGateMinimumTimeout = null;
         }
 
         cancelInitialMediaGateTimeout() {
@@ -399,15 +498,17 @@
         isDirectMediaElement(element) {
             const tag = String(element && element.tagName || '').toUpperCase();
             return tag === 'IMG' || tag === 'CANVAS' || tag === 'SVG' || tag === 'IMAGE'
-                || tag === 'OBJECT' || tag === 'EMBED'
+                || tag === 'OBJECT' || tag === 'EMBED' || tag === 'VIDEO'
                 || (tag === 'INPUT' && String(element.type || '').toLowerCase() === 'image');
         }
 
         markPendingMediaTree(root, includeRoot) {
             if (!root)
                 return;
-            if (includeRoot && root.nodeType === 1)
+            if (includeRoot && root.nodeType === 1) {
                 this.markMediaPending(root);
+                this.markInlineStyleMediaPending(root);
+            }
             if (!root.querySelectorAll)
                 return;
             let media;
@@ -415,6 +516,34 @@
             catch (err) { return; }
             for (const element of media)
                 this.markMediaPending(element);
+            let styled;
+            try { styled = root.querySelectorAll(INLINE_STYLE_MEDIA_SELECTOR); }
+            catch (err) { return; }
+            for (const element of styled)
+                this.markInlineStyleMediaPending(element);
+        }
+
+        hasInlineStyleMedia(element) {
+            const style = element && element.style;
+            if (!style)
+                return false;
+            for (const property of STYLE_MEDIA_PROPERTIES) {
+                if (Shared.extractCssUrls(style[property]).length)
+                    return true;
+            }
+            return false;
+        }
+
+        markInlineStyleMediaPending(element) {
+            if (!this.active || !element || element.nodeType !== 1 || !element.getAttribute
+                || !this.hasInlineStyleMedia(element))
+                return false;
+            if (element.getAttribute(MEDIA_PENDING_ATTRIBUTE) === '1')
+                return true;
+            this.pendingMediaElements.set(element, this.now());
+            this.writeAttribute(element, MEDIA_PENDING_ATTRIBUTE, '1');
+            this.schedulePendingMediaFailOpen();
+            return true;
         }
 
         markMediaPending(element) {
@@ -435,6 +564,48 @@
             this.writeAttribute(element, MEDIA_PENDING_ATTRIBUTE, null);
         }
 
+        isEarlyShadowMediaHost(element) {
+            return !!(element && element.localName
+                && EARLY_SHADOW_MEDIA_HOSTS.has(String(element.localName).toLowerCase()));
+        }
+
+        markPendingShadowHostTree(root, includeRoot) {
+            if (!root)
+                return;
+            if (includeRoot && root.nodeType === 1)
+                this.markShadowHostPending(root);
+            if (!root.querySelectorAll)
+                return;
+            let hosts;
+            try { hosts = root.querySelectorAll(EARLY_SHADOW_MEDIA_HOST_SELECTOR); }
+            catch (err) { return; }
+            for (const host of hosts)
+                this.markShadowHostPending(host);
+        }
+
+        markShadowHostPending(element) {
+            if (!this.active || !this.isEarlyShadowMediaHost(element) || !element.getAttribute)
+                return false;
+            if (!this.pendingShadowHosts.has(element))
+                this.pendingShadowHosts.set(element, {
+                    createdAt: this.now(),
+                    root: null,
+                    scanComplete: false,
+                    styleReady: false
+                });
+            if (element.getAttribute(SHADOW_HOST_PENDING_ATTRIBUTE) !== '1')
+                this.writeAttribute(element, SHADOW_HOST_PENDING_ATTRIBUTE, '1');
+            this.schedulePendingShadowHostFailOpen();
+            return true;
+        }
+
+        clearShadowHostPending(element) {
+            if (!element)
+                return;
+            this.pendingShadowHosts.delete(element);
+            this.writeAttribute(element, SHADOW_HOST_PENDING_ATTRIBUTE, null);
+        }
+
         schedulePendingMediaFailOpen() {
             if (!this.active || this.pendingMediaTimeout != null || !this.pendingMediaElements.size)
                 return;
@@ -453,6 +624,24 @@
             }, delay);
         }
 
+        schedulePendingShadowHostFailOpen() {
+            if (!this.active || this.pendingShadowHostTimeout != null || !this.pendingShadowHosts.size)
+                return;
+            let oldest = Infinity;
+            for (const state of this.pendingShadowHosts.values())
+                oldest = Math.min(oldest, state.createdAt);
+            const delay = Math.max(0, SHADOW_HOST_PENDING_FAIL_OPEN_MS - (this.now() - oldest));
+            this.pendingShadowHostTimeout = this.setTrackedTimeout(() => {
+                this.pendingShadowHostTimeout = null;
+                const cutoff = this.now() - SHADOW_HOST_PENDING_FAIL_OPEN_MS;
+                for (const [element, state] of Array.from(this.pendingShadowHosts)) {
+                    if (!element || !element.isConnected || element.ownerDocument !== this.doc || state.createdAt <= cutoff)
+                        this.clearShadowHostPending(element);
+                }
+                this.schedulePendingShadowHostFailOpen();
+            }, delay);
+        }
+
         currentDirectMediaUrl(element) {
             const tag = String(element && element.tagName || '').toUpperCase();
             if (tag === 'IMG' || (tag === 'INPUT' && String(element.type || '').toLowerCase() === 'image'))
@@ -466,6 +655,8 @@
                 return this.resolveMediaUrl(element.data || element.getAttribute('data'));
             if (tag === 'EMBED')
                 return this.resolveMediaUrl(element.src || element.getAttribute('src'));
+            if (tag === 'VIDEO')
+                return this.resolveMediaUrl(element.poster || element.getAttribute('poster'));
             return '';
         }
 
@@ -480,7 +671,7 @@
             // Gmail flicker this controller is designed to avoid.
             if (/^(?:width|height)$/.test(name))
                 return false;
-            if (!/^(?:src|srcset|sizes|data|href|xlink:href)$/.test(name))
+            if (!/^(?:src|srcset|sizes|data|href|xlink:href|poster)$/.test(name))
                 return false;
             const previous = this.inspectedMediaUrls.get(element);
             const tag = String(element.tagName || '').toUpperCase();
@@ -491,6 +682,8 @@
                 current = this.resolveMediaUrl(element.getAttribute('src') || element.src);
             else if (name === 'data' && tag === 'OBJECT')
                 current = this.resolveMediaUrl(element.getAttribute('data') || element.data);
+            else if (name === 'poster' && tag === 'VIDEO')
+                current = this.resolveMediaUrl(element.getAttribute('poster') || element.poster);
             else if (/^(?:href|xlink:href)$/.test(name) && tag === 'IMAGE')
                 current = this.resolveMediaUrl(element.getAttribute(name));
             else
@@ -1064,12 +1257,7 @@
                     this.lateShadowHosts.add(element);
                     continue;
                 }
-                this.ensureShadowStyle(shadow, element);
-                if (!this.observedRoots.has(shadow)) {
-                    this.markPendingMediaTree(shadow, false);
-                    this.observeRoot(shadow);
-                    this.queueTree(shadow, false);
-                }
+                this.observeDiscoveredShadowRoot(shadow, element);
             }
         }
 
@@ -1159,12 +1347,76 @@
                 const shadow = this.getShadowRoot(element);
                 if (!shadow || this.observedRoots.has(shadow))
                     continue;
-                this.ensureShadowStyle(shadow, element);
+                this.observeDiscoveredShadowRoot(shadow, element);
+            }
+            return { sampled, complete: false };
+        }
+
+        observeDiscoveredShadowRoot(shadow, host) {
+            const styleLink = this.ensureShadowStyle(shadow, host);
+            if (!this.observedRoots.has(shadow)) {
                 this.markPendingMediaTree(shadow, false);
                 this.observeRoot(shadow);
                 this.queueTree(shadow, false);
             }
-            return { sampled, complete: false };
+            this.trackShadowHostReadiness(host, shadow, styleLink);
+        }
+
+        trackShadowHostReadiness(host, shadow, styleLink) {
+            if (!host || typeof host.getAttribute !== 'function'
+                || host.getAttribute(SHADOW_HOST_PENDING_ATTRIBUTE) !== '1' || !styleLink)
+                return;
+            let state = this.pendingShadowHosts.get(host);
+            if (!state) {
+                state = {
+                    createdAt: this.now(),
+                    root: shadow,
+                    scanComplete: false,
+                    styleReady: false
+                };
+                this.pendingShadowHosts.set(host, state);
+            }
+            state.root = shadow;
+            state.scanComplete = this.observedRoots.has(shadow) && !this.queuedRoots.has(shadow);
+            let ready = false;
+            try { ready = !!styleLink.sheet; } catch (err) { ready = false; }
+            if (ready) {
+                state.styleReady = true;
+                this.maybeReleaseShadowHost(host);
+                return;
+            }
+            if (this.shadowPendingReleaseLinks.has(styleLink))
+                return;
+            this.shadowPendingReleaseLinks.add(styleLink);
+            this.listen(styleLink, 'load', () => {
+                this.shadowPendingReleaseLinks.delete(styleLink);
+                if (!this.active)
+                    return;
+                const current = this.pendingShadowHosts.get(host);
+                if (current) {
+                    current.styleReady = true;
+                    this.maybeReleaseShadowHost(host);
+                }
+            }, { once: true });
+        }
+
+        markShadowRootScanComplete(root) {
+            const host = root && root.host;
+            if (!host || typeof host.getAttribute !== 'function'
+                || host.getAttribute(SHADOW_HOST_PENDING_ATTRIBUTE) !== '1')
+                return;
+            const state = this.pendingShadowHosts.get(host);
+            if (!state || (state.root && state.root !== root))
+                return;
+            state.root = root;
+            state.scanComplete = true;
+            this.maybeReleaseShadowHost(host);
+        }
+
+        maybeReleaseShadowHost(host) {
+            const state = this.pendingShadowHosts.get(host);
+            if (state && state.styleReady && state.scanComplete)
+                this.clearShadowHostPending(host);
         }
 
         canHostShadow(element) {
@@ -1204,6 +1456,8 @@
                     const element = mutation.target;
                     if (this.consumeOwnWrite(element, mutation.attributeName))
                         continue;
+                    if (String(mutation.attributeName || '').toLowerCase() === 'style')
+                        this.markInlineStyleMediaPending(element);
                     if (this.shadowStyleLinks.has(element)) {
                         const shadow = this.shadowStyleRootByLink.get(element);
                         if (this.isShadowRootLike(shadow))
@@ -1291,6 +1545,7 @@
                     // bounded subtree-job queue. Descendants still scan in the
                     // yielding tree lane.
                     this.markPendingMediaTree(node, true);
+                    this.markPendingShadowHostTree(node, true);
                     this.queueElement(node);
                     this.queueTree(node, false);
                     if (/^(?:STYLE|LINK)$/.test(String(node.tagName || '').toUpperCase())) {
@@ -1529,6 +1784,12 @@
                 if (!element || !element.isConnected || element.ownerDocument !== this.doc) {
                     try { element.removeAttribute(MEDIA_PENDING_ATTRIBUTE); } catch (err) { /* ignore */ }
                     this.pendingMediaElements.delete(element);
+                }
+            }
+            for (const element of Array.from(this.pendingShadowHosts.keys())) {
+                if (!element || !element.isConnected || element.ownerDocument !== this.doc) {
+                    try { element.removeAttribute(SHADOW_HOST_PENDING_ATTRIBUTE); } catch (err) { /* ignore */ }
+                    this.pendingShadowHosts.delete(element);
                 }
             }
             for (const [observer, root] of Array.from(this.observerRoots.entries())) {
@@ -1809,6 +2070,7 @@
                     return element;
                 }
                 this.queuedRoots.delete(job.root);
+                this.markShadowRootScanComplete(job.root);
                 this.promoteDeferredScan();
             }
             return null;
@@ -1842,9 +2104,9 @@
                     this.queueElement(image);
             }
             else if (tag === 'VIDEO')
-                this.clearElementRecords(element);
+                this.inspectVideoPoster(element);
 
-            if (!SKIP_BACKGROUND_TAGS.test(tag) && tag !== 'VIDEO')
+            if (!SKIP_BACKGROUND_TAGS.test(tag))
                 this.inspectBackground(element);
         }
 
@@ -1855,15 +2117,11 @@
             const shadow = this.getShadowRoot(element);
             if (shadow) {
                 this.lateShadowHosts.delete(element);
-                this.ensureShadowStyle(shadow, element);
-                if (!this.observedRoots.has(shadow)) {
-                    this.markPendingMediaTree(shadow, false);
-                    this.observeRoot(shadow);
-                    this.queueTree(shadow, false);
-                }
+                this.observeDiscoveredShadowRoot(shadow, element);
                 return;
             }
             if (this.canHostShadow(element)) {
+                this.markShadowHostPending(element);
                 if (!this.lateShadowHosts.has(element) && this.lateShadowHosts.size >= MAX_LATE_SHADOW_HOSTS) {
                     // Keep the tracker bounded. The oldest host has already had
                     // at least one discovery attempt and will be rediscovered by
@@ -2101,6 +2359,15 @@
         inspectImage(element) {
             const url = this.resolveMediaUrl(element.currentSrc || element.src || element.getAttribute('src'));
             this.inspectUrlElement(element, 'img', url);
+        }
+
+        inspectVideoPoster(element) {
+            const poster = this.resolveMediaUrl(element.poster || element.getAttribute('poster'));
+            if (poster) {
+                this.inspectUrlElement(element, 'video-poster', poster);
+                return;
+            }
+            this.clearRecordKind(element, 'video-poster');
         }
 
         inspectUrlElement(element, kind, rawUrl, extraKey) {
@@ -2717,6 +2984,14 @@
             const expected = value == null ? null : String(value);
             if (current === expected)
                 return;
+            this.rememberOwnWrite(element, name, expected);
+            if (expected == null)
+                element.removeAttribute(name);
+            else
+                element.setAttribute(name, expected);
+        }
+
+        rememberOwnWrite(element, name, expected) {
             let writes = this.ownWrites.get(element);
             if (!writes) {
                 writes = new Map();
@@ -2724,10 +2999,6 @@
             }
             const previous = writes.get(name);
             writes.set(name, { expected, remaining: (previous ? previous.remaining : 0) + 1 });
-            if (expected == null)
-                element.removeAttribute(name);
-            else
-                element.setAttribute(name, expected);
         }
 
         consumeOwnWrite(element, name) {

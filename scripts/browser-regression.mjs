@@ -151,10 +151,27 @@ function fixtureHtml() {
 function mv3FixtureHtml() {
   return `<!doctype html>
 <html>
-<head><meta charset="utf-8"><title>WZM_MV3_SMOKE</title></head>
+<head>
+  <meta charset="utf-8">
+  <title>WZM_MV3_SMOKE</title>
+  <style>
+    .mv3-css-preview,
+    .mv3-delayed-css-preview {
+      width: 120px;
+      height: 120px;
+    }
+    .mv3-css-preview {
+      background-image: url("/img/mv3-background-preview.png");
+    }
+    .mv3-delayed-css-preview {
+      background-image: url("/img/mv3-delayed-background-preview.png");
+    }
+  </style>
+</head>
 <body>
   <button id="mv3-site-button" type="button">Site action</button>
   <img id="mv3-image" src="/img/mv3-smoke.png" alt="MV3 smoke fixture" style="width:120px;height:120px">
+  <div id="mv3-css-preview" class="mv3-css-preview"></div>
   <div id="mv3-stress-spinner">Loading compiler architecture diagrams...</div>
   <section id="mv3-stress-grid"></section>
   <script>
@@ -174,6 +191,15 @@ function mv3FixtureHtml() {
       dynamicProbeFrames: 0,
       dynamicRawFrames: 0,
       dynamicSuppressedFrames: 0,
+      cssPreviewProbeFrames: 0,
+      cssPreviewRawFrames: 0,
+      cssPreviewSuppressedFrames: 0,
+      cssPreviewLocked: false,
+      delayedCssPreviewInserted: false,
+      delayedCssPreviewProbeFrames: 0,
+      delayedCssPreviewRawFrames: 0,
+      delayedCssPreviewSuppressedFrames: 0,
+      delayedCssPreviewLocked: false,
       quietVisualWrites: 0,
       closedRootStyleSeen: false,
       closedRootImageLocked: false,
@@ -197,6 +223,44 @@ function mv3FixtureHtml() {
         image.getAttribute('data-wzm-locked') !== '1' &&
         image.getAttribute('data-wzm-hide') !== '1';
     };
+    window.__wzmRawCssMediaExposed = function (element) {
+      const style = getComputedStyle(element);
+      return style.backgroundImage !== 'none' &&
+        style.backgroundSize !== '0px 0px' &&
+        element.getAttribute('data-wzm-pattern-bg-img') !== '1' &&
+        element.getAttribute('data-wzm-suppress-self-background') !== '1';
+    };
+    requestAnimationFrame(function sampleCssPreview() {
+      const state = window.__wzmMv3Stress;
+      const preview = document.getElementById('mv3-css-preview');
+      state.cssPreviewProbeFrames++;
+      if (window.__wzmRawCssMediaExposed(preview)) state.cssPreviewRawFrames++;
+      else state.cssPreviewSuppressedFrames++;
+      if (preview.getAttribute('data-wzm-pattern-bg-img') === '1' || state.cssPreviewProbeFrames >= 120) {
+        state.cssPreviewLocked = preview.getAttribute('data-wzm-pattern-bg-img') === '1';
+        return;
+      }
+      requestAnimationFrame(sampleCssPreview);
+    });
+    setTimeout(function hydrateDelayedCssPreview() {
+      const state = window.__wzmMv3Stress;
+      const preview = document.createElement('div');
+      preview.id = 'mv3-delayed-css-preview';
+      preview.className = 'mv3-delayed-css-preview';
+      document.body.appendChild(preview);
+      state.delayedCssPreviewInserted = true;
+      requestAnimationFrame(function sampleDelayedCssPreview() {
+        state.delayedCssPreviewProbeFrames++;
+        if (window.__wzmRawCssMediaExposed(preview)) state.delayedCssPreviewRawFrames++;
+        else state.delayedCssPreviewSuppressedFrames++;
+        if (preview.getAttribute('data-wzm-pattern-bg-img') === '1' ||
+          state.delayedCssPreviewProbeFrames >= 120) {
+          state.delayedCssPreviewLocked = preview.getAttribute('data-wzm-pattern-bg-img') === '1';
+          return;
+        }
+        requestAnimationFrame(sampleDelayedCssPreview);
+      });
+    }, 1250);
     requestAnimationFrame(function sampleInitialMedia() {
       const paint = window.__wzmMv3Paint;
       const image = document.getElementById('mv3-image');
@@ -306,6 +370,10 @@ function mv3FixtureHtml() {
         }
         state.closedRootImageLocked = closedImage.getAttribute('data-wzm-locked') === '1';
         state.closedRootStyleSeen = !!closedRoot.querySelector('link[data-wzm-shadow-style="1"]');
+        const delayedCssDeadline = performance.now() + 5000;
+        while (performance.now() < delayedCssDeadline && !state.delayedCssPreviewLocked) {
+          await new Promise(function (resolve) { setTimeout(resolve, 25); });
+        }
         if (state.closedRootStyleSeen) {
           let reconciliationTimerFired = false;
           const pageReconciler = new MutationObserver(function (mutations) {
@@ -795,6 +863,15 @@ async function waitForMv3SmokeResult(endpoint, fixtureUrl, options) {
     || stressState.dynamicProbeFrames !== 1
     || stressState.dynamicRawFrames !== 0
     || stressState.dynamicSuppressedFrames !== 1
+    || stressState.cssPreviewProbeFrames < 1
+    || stressState.cssPreviewRawFrames !== 0
+    || stressState.cssPreviewSuppressedFrames !== stressState.cssPreviewProbeFrames
+    || stressState.cssPreviewLocked !== true
+    || stressState.delayedCssPreviewInserted !== true
+    || stressState.delayedCssPreviewProbeFrames < 1
+    || stressState.delayedCssPreviewRawFrames !== 0
+    || stressState.delayedCssPreviewSuppressedFrames !== stressState.delayedCssPreviewProbeFrames
+    || stressState.delayedCssPreviewLocked !== true
     || !stressState.paint
     || stressState.paint.done !== true
     || stressState.paint.frames < 1
@@ -838,11 +915,11 @@ async function waitForMv3SmokeResult(endpoint, fixtureUrl, options) {
     "The MV3 extension-page sender did not become ready",
   );
 
-  const sendPause = async toggle => {
+  const sendWorkerCommand = async (message, label) => {
     const result = await evaluateTarget(
       senderTarget,
       `new Promise(resolve => chrome.runtime.sendMessage(
-        { r: "pause", toggle: ${toggle ? "true" : "false"} },
+        ${JSON.stringify(message)},
         response => resolve({
           response,
           error: chrome.runtime.lastError ? chrome.runtime.lastError.message : ""
@@ -851,9 +928,30 @@ async function waitForMv3SmokeResult(endpoint, fixtureUrl, options) {
       true,
     );
     if (!result || result.error || !result.response || result.response.ok !== true) {
-      throw new Error(`The MV3 worker pause route failed${result && result.error ? `: ${result.error}` : "."}`);
+      throw new Error(`The MV3 worker ${label} route failed${result && result.error ? `: ${result.error}` : "."}`);
     }
   };
+  const sendContentCommand = async (message, label) => {
+    const result = await evaluateTarget(
+      senderTarget,
+      `new Promise(resolve => chrome.tabs.query({}, tabs => {
+        const tab = tabs.find(candidate => candidate.url === ${JSON.stringify(fixtureUrl)});
+        if (!tab) {
+          resolve({ response: null, error: "fixture tab not found" });
+          return;
+        }
+        chrome.tabs.sendMessage(tab.id, ${JSON.stringify(message)}, response => resolve({
+          response,
+          error: chrome.runtime.lastError ? chrome.runtime.lastError.message : ""
+        }));
+      }))`,
+      true,
+    );
+    if (!result || result.error || !result.response || result.response.ok !== true) {
+      throw new Error(`The MV3 content ${label} route failed${result && result.error ? `: ${result.error}` : "."}`);
+    }
+  };
+  const sendPause = async toggle => sendWorkerCommand({ r: "pause", toggle }, "pause");
 
   await sendPause(true);
   await waitForPageCondition(
@@ -874,10 +972,120 @@ async function waitForMv3SmokeResult(endpoint, fixtureUrl, options) {
     "Resuming through the MV3 worker did not re-lock the image without a reload",
   );
 
+  await sendContentCommand({ r: "showImages" }, "Show Images");
+  await waitForPageCondition(
+    pageTarget,
+    `(() => {
+      const image = document.getElementById("mv3-image");
+      return window.mv3PageToken === ${JSON.stringify(initialState.token)} &&
+        document.documentElement.classList.contains("wizmage-running") &&
+        !image?.hasAttribute("data-wzm-locked") &&
+        !image?.hasAttribute("data-wzm-pattern-bg-img");
+    })()`,
+    "Show Images did not reveal current media while leaving the controller active",
+  );
+  await evaluateTarget(
+    pageTarget,
+    `(() => {
+      const image = document.createElement("img");
+      image.id = "mv3-after-show-image";
+      image.src = "/img/mv3-after-show.png";
+      image.alt = "lazy media inserted after Show Images";
+      image.style.cssText = "width:120px;height:120px";
+      document.body.appendChild(image);
+      return true;
+    })()`,
+  );
+  await waitForPageCondition(
+    pageTarget,
+    `document.getElementById("mv3-after-show-image")?.getAttribute("data-wzm-locked") === "1"`,
+    "Media inserted after Show Images bypassed the live filter",
+  );
+  await evaluateTarget(pageTarget, `document.getElementById("mv3-after-show-image")?.remove(); true`);
+
+  const safeDomainFixture = await evaluateTarget(
+    pageTarget,
+    `(() => {
+      const image = document.getElementById("mv3-image");
+      return { token: window.mv3PageToken, url: image && image.currentSrc };
+    })()`,
+  );
+  if (!safeDomainFixture || !safeDomainFixture.url) {
+    throw new Error("The MV3 safe-domain fixture had no current image URL.");
+  }
+  await evaluateTarget(
+    workerTarget,
+    `cachePut(${JSON.stringify(safeDomainFixture.url)}, 0); true`,
+  );
+  await sendWorkerCommand({ r: "setAlwaysBlock", toggle: true }, "Always Block");
+  await sendWorkerCommand({ r: "setBlockTarget", blockTarget: "people" }, "block target");
+  await waitForPageCondition(
+    pageTarget,
+    `(() => {
+      const image = document.getElementById("mv3-image");
+      return window.mv3PageToken === ${JSON.stringify(safeDomainFixture.token)} &&
+        image?.getAttribute("data-wzm-locked") === "1" &&
+        image?.getAttribute("data-wzm-always") === "1";
+    })()`,
+    "Always Block did not render the cached-safe MV3 fixture",
+  );
+
+  const userRevealState = await evaluateTarget(
+    pageTarget,
+    `(() => {
+      const image = document.getElementById("mv3-image");
+      image?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, composed: true }));
+      const eye = document.querySelector('[data-wzm-eye="1"]');
+      eye?.click();
+      return {
+        eyeFound: !!eye,
+        locked: image?.getAttribute("data-wzm-locked"),
+        pattern: image?.getAttribute("data-wzm-pattern-bg-img")
+      };
+    })()`,
+  );
+  if (!userRevealState?.eyeFound || userRevealState.locked || userRevealState.pattern) {
+    throw new Error("The MV3 safe-domain fixture could not enter the user-revealed state.");
+  }
+
+  await sendWorkerCommand(
+    { r: "allowSafeForDomain", url: fixtureUrl, toggle: true },
+    "safe-domain enable",
+  );
+  await waitForPageCondition(
+    pageTarget,
+    `(() => {
+      const image = document.getElementById("mv3-image");
+      return window.mv3PageToken === ${JSON.stringify(safeDomainFixture.token)} &&
+        !image?.hasAttribute("data-wzm-locked") &&
+        !image?.hasAttribute("data-wzm-pattern-bg-img") &&
+        !image?.hasAttribute("data-wzm-always") &&
+        !image?.hasAttribute("data-wzm-media-pending");
+    })()`,
+    "The safe-domain toggle did not show cached-safe media without navigation",
+  );
+  await sendWorkerCommand(
+    { r: "allowSafeForDomain", url: fixtureUrl, toggle: false },
+    "safe-domain disable",
+  );
+  await waitForPageCondition(
+    pageTarget,
+    `(() => {
+      const image = document.getElementById("mv3-image");
+      return window.mv3PageToken === ${JSON.stringify(safeDomainFixture.token)} &&
+        image?.getAttribute("data-wzm-locked") === "1" &&
+        image?.getAttribute("data-wzm-pattern-bg-img") === "1" &&
+        image?.getAttribute("data-wzm-always") === "1";
+    })()`,
+    "Removing the safe-domain toggle did not reblock cached-safe media without navigation",
+  );
+
   return {
     status: "pass",
     details: `Loaded extension ${extensionId}; ${stressState.paint.preLockFrames} pre-lock frames exposed zero raw media, ` +
-      `and the 160-tile stress plus pause/resume passed without navigation.`,
+      `${stressState.cssPreviewProbeFrames} parser-time CSS-preview frames exposed zero raw media, ` +
+      `${stressState.delayedCssPreviewProbeFrames} delayed CSS-preview frames exposed zero raw media, and the ` +
+      `160-tile stress, pause/resume, Show Images lazy-load, and safe-domain on/off passed without navigation.`,
   };
 }
 
@@ -1081,7 +1289,12 @@ function browserVersion(browserPath) {
     : basename(browserPath);
 }
 
-export async function runBrowserRegression({ rootDir = ROOT_DIR, requireBrowser, requireMv3 } = {}) {
+export async function runBrowserRegression({
+  rootDir = ROOT_DIR,
+  extensionDir = rootDir,
+  requireBrowser,
+  requireMv3,
+} = {}) {
   const browserPath = findSupportedBrowser();
   const required = requireBrowser ?? /^(?:1|true|yes)$/i.test(process.env.WIZMAGE_REQUIRE_BROWSER || "");
   const mv3Required = requireMv3 ?? /^(?:1|true|yes)$/i.test(process.env.WIZMAGE_REQUIRE_MV3 || "");
@@ -1114,7 +1327,7 @@ export async function runBrowserRegression({ rootDir = ROOT_DIR, requireBrowser,
         join(temporaryRoot, "mv3-profile"),
         new URL("/mv3.html", fixture.url).href,
         {
-          extensionPath: resolve(rootDir),
+          extensionPath: resolve(extensionDir),
           waitForResult: waitForMv3SmokeResult,
         },
       );

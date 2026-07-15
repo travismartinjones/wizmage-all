@@ -8,7 +8,8 @@ html.wizmage-media-starting :is(
     svg,
     image,
     object[type^="image/" i],
-    embed[type^="image/" i]
+    embed[type^="image/" i],
+    video
 ):not([data-wzm-locked="1"]),
 :is(
     img,
@@ -17,9 +18,58 @@ html.wizmage-media-starting :is(
     svg,
     image,
     object[type^="image/" i],
-    embed[type^="image/" i]
+    embed[type^="image/" i],
+    video
 )[data-wzm-media-pending="1"]:not([data-wzm-locked="1"]) {
     opacity: 0 !important;
+}
+
+/* SPA image previews are often painted as CSS backgrounds before their final
+   IMG exists. Give image-bearing CSS surfaces a zero paint size during startup
+   and while an inline style is awaiting inspection. The URL stays available to
+   getComputedStyle so the controller can still classify it. */
+:is(
+    html.wizmage-media-starting,
+    html.wizmage-media-starting *,
+    html.wizmage-media-authority-pending,
+    html.wizmage-media-authority-pending *,
+    [data-wzm-media-pending="1"]
+) {
+    background-size: 0 0 !important;
+    mask-size: 0 0 !important;
+    -webkit-mask-size: 0 0 !important;
+    border-image-width: 0 !important;
+}
+
+:is(
+    html.wizmage-media-starting,
+    html.wizmage-media-starting *,
+    html.wizmage-media-authority-pending,
+    html.wizmage-media-authority-pending *,
+    [data-wzm-media-pending="1"]
+)::before,
+:is(
+    html.wizmage-media-starting,
+    html.wizmage-media-starting *,
+    html.wizmage-media-authority-pending,
+    html.wizmage-media-authority-pending *,
+    [data-wzm-media-pending="1"]
+)::after {
+    background-size: 0 0 !important;
+    mask-size: 0 0 !important;
+    -webkit-mask-size: 0 0 !important;
+    border-image-width: 0 !important;
+    visibility: hidden !important;
+}
+
+:is(
+    html.wizmage-media-starting,
+    html.wizmage-media-starting *,
+    html.wizmage-media-authority-pending,
+    html.wizmage-media-authority-pending *,
+    [data-wzm-media-pending="1"]
+)::marker {
+    content: "" !important;
 }
 
 /* Local settings may let the controller pre-scan while a cold MV3 worker
@@ -32,7 +82,8 @@ html.wizmage-media-authority-pending :is(
     svg,
     image,
     object[type^="image/" i],
-    embed[type^="image/" i]
+    embed[type^="image/" i],
+    video
 ) {
     opacity: 0 !important;
 }
@@ -46,7 +97,8 @@ html.wizmage-media-authority-pending :is(
     svg,
     image,
     object[type^="image/" i],
-    embed[type^="image/" i]
+    embed[type^="image/" i],
+    video
 ):not([data-wzm-locked="1"]) {
     opacity: 0 !important;
 }
@@ -58,8 +110,45 @@ html.wizmage-media-authority-pending :is(
     svg,
     image,
     object[type^="image/" i],
-    embed[type^="image/" i]
+    embed[type^="image/" i],
+    video
 ) {
+    opacity: 0 !important;
+}
+
+:host-context(html.wizmage-media-starting),
+:host-context(html.wizmage-media-starting) *,
+:host-context(html.wizmage-media-authority-pending),
+:host-context(html.wizmage-media-authority-pending) * {
+    background-size: 0 0 !important;
+    mask-size: 0 0 !important;
+    -webkit-mask-size: 0 0 !important;
+    border-image-width: 0 !important;
+}
+
+:host-context(html.wizmage-media-starting)::before,
+:host-context(html.wizmage-media-starting) *::before,
+:host-context(html.wizmage-media-starting)::after,
+:host-context(html.wizmage-media-starting) *::after,
+:host-context(html.wizmage-media-authority-pending)::before,
+:host-context(html.wizmage-media-authority-pending) *::before,
+:host-context(html.wizmage-media-authority-pending)::after,
+:host-context(html.wizmage-media-authority-pending) *::after {
+    background-size: 0 0 !important;
+    mask-size: 0 0 !important;
+    -webkit-mask-size: 0 0 !important;
+    border-image-width: 0 !important;
+    visibility: hidden !important;
+}
+
+:host-context(html.wizmage-media-starting)::marker,
+:host-context(html.wizmage-media-starting) *::marker,
+:host-context(html.wizmage-media-authority-pending)::marker,
+:host-context(html.wizmage-media-authority-pending) *::marker {
+    content: "" !important;
+}
+
+html.wizmage-running [data-wzm-shadow-pending="1"] {
     opacity: 0 !important;
 }
 

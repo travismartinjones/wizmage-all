@@ -461,11 +461,11 @@
             setIcon(false);
             return false;
         }
-        prepareFilteringRoot();
         if (controller) {
             controller.updateSettings(next);
         }
         else {
+            prepareFilteringRoot();
             controller = new Controller(window, next, makeEnvironment());
             controller.start();
         }
@@ -612,11 +612,18 @@
     }
 
     function showAllImages() {
-        manualShow = true;
-        if (controller) {
-            controller.destroy({ show: true });
-            controller = null;
+        if (controller && typeof controller.showCurrentImages === 'function'
+            && controller.showCurrentImages()) {
+            manualShow = false;
+            cancelAnalysisRequests();
+            releaseMediaGate();
+            setIcon(true);
+            return;
         }
+        manualShow = true;
+        if (controller)
+            controller.destroy({ show: true });
+        controller = null;
         cancelAnalysisRequests();
         releaseMediaGate();
         setIcon(false);

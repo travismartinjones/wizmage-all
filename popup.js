@@ -568,7 +568,7 @@ wzmTabsQuery({ active: true, currentWindow: true }, function (tabs) {
                     if (isChecked)
                         wzmAddUnique(list, domain);
                     else
-                        wzmRemoveMatches(list, entry => (entry || '').toLowerCase() === domain);
+                        wzmRemoveMatches(list, entry => wzmDomainMatchesList(domain, [entry]));
                 }, done),
                 success => finishQuickSetting(isFilteringActive(currentSettings), success)
             );
