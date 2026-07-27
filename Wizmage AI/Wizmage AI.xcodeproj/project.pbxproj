@@ -196,7 +196,7 @@
 		E818BE5E2F2323B2005A3C39 /* pattern2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = pattern2.png; path = ../../pattern2.png; sourceTree = "<group>"; };
 		E818BE5F2F2323B2005A3C39 /* pattern3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = pattern3.png; path = ../../pattern3.png; sourceTree = "<group>"; };
 		E818BE602F2323B2005A3C39 /* undo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = undo.png; path = ../../undo.png; sourceTree = "<group>"; };
-		E818BE612F2323B2005A3C39 /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = manifest.json; path = ../../manifest.json; sourceTree = "<group>"; };
+		E818BE612F2323B2005A3C39 /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = manifest.json; sourceTree = "<group>"; };
 		E818BE622F2323B2005A3C39 /* pattern1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = pattern1.png; path = ../../pattern1.png; sourceTree = "<group>"; };
 		E818BE632F2323B2005A3C39 /* migrate-settings.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "migrate-settings.js"; path = "../../migrate-settings.js"; sourceTree = "<group>"; };
 		E818BE642F2323B2005A3C39 /* pattern0.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = pattern0.png; path = ../../pattern0.png; sourceTree = "<group>"; };

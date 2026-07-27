@@ -249,6 +249,19 @@ function localHtmlScripts(expectedEntries) {
 }
 
 function checkSafariExtensionResources(manifest, expectedEntries) {
+  const safariManifestPath = join(ROOT_DIR, "Wizmage AI", "Shared (Extension)", "manifest.json");
+  const safariManifest = JSON.parse(readFileSync(safariManifestPath, "utf8"));
+  const expectedSafariManifest = structuredClone(manifest);
+  expectedSafariManifest.background = {
+    persistent: false,
+    scripts: ["shared.js", "service_worker.js"],
+  };
+  assert.deepEqual(
+    safariManifest,
+    expectedSafariManifest,
+    "The Safari manifest must match the release manifest except for its background-page declaration.",
+  );
+
   const requiredScripts = localHtmlScripts(expectedEntries);
   if (manifest.background && manifest.background.service_worker) {
     requiredScripts.add(manifest.background.service_worker);
@@ -277,6 +290,13 @@ function checkSafariExtensionResources(manifest, expectedEntries) {
   );
   assert(resourceGroup, "The Xcode Shared (Extension) Resources group was not found.");
   const groupChildren = listObjectIds(resourceGroup.body, "children");
+  const manifestGroupMatches = groupChildren.filter(reference => reference.comment === "manifest.json");
+  assert.equal(manifestGroupMatches.length, 1, "Xcode Shared (Extension) group must contain manifest.json exactly once.");
+  const manifestReference = objects.get(manifestGroupMatches[0].id);
+  assert(
+    manifestReference && /\bpath = manifest\.json;/.test(manifestReference.body),
+    "Xcode must package the Safari-specific manifest from Shared (Extension).",
+  );
 
   const targetNames = ["Wizmage AI Extension (iOS)", "Wizmage AI Extension (macOS)"];
   const phaseResources = new Map();
@@ -290,6 +310,18 @@ function checkSafariExtensionResources(manifest, expectedEntries) {
     const phase = objects.get(resourcePhaseReference.id);
     assert(phase && /\bisa = PBXResourcesBuildPhase;/.test(phase.body), `Invalid Resources phase for ${targetName}`);
     phaseResources.set(targetName, listObjectIds(phase.body, "files"));
+  }
+
+  for (const [targetName, resources] of phaseResources) {
+    const manifestMatches = resources.filter(resource => {
+      const buildFile = objects.get(resource.id);
+      if (!buildFile) {
+        return false;
+      }
+      const fileRefMatch = buildFile.body.match(/\bfileRef = ([A-F0-9]{24}) \/\*/);
+      return !!fileRefMatch && fileRefMatch[1] === manifestReference.id;
+    });
+    assert.equal(manifestMatches.length, 1, `${targetName} must package the Safari manifest exactly once.`);
   }
 
   for (const file of [...requiredScripts].sort()) {
