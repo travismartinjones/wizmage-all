@@ -24,6 +24,48 @@ html.wizmage-media-starting :is(
     opacity: 0 !important;
 }
 
+/* Safari's Amazon guard is paint-only: it starts at document_start without
+   changing generated content, intrinsic sizes, or any descendant geometry. */
+html.wizmage-safari-media-starting :is(
+    img,
+    input[type="image" i],
+    canvas,
+    svg,
+    image,
+    object[type^="image/" i],
+    embed[type^="image/" i],
+    video
+):not([data-wzm-safari-locked="1"]) {
+    opacity: 0 !important;
+}
+
+:is(
+    img,
+    input[type="image" i],
+    canvas,
+    svg,
+    image,
+    object[type^="image/" i],
+    embed[type^="image/" i],
+    video
+)[data-wzm-safari-media-pending="1"]:not([data-wzm-safari-locked="1"]) {
+    opacity: 0 !important;
+}
+
+html.wizmage-safari-media-starting,
+html.wizmage-safari-media-starting *,
+html.wizmage-safari-media-starting *::before,
+html.wizmage-safari-media-starting *::after,
+[data-wzm-safari-media-pending="1"],
+[data-wzm-safari-media-pending="1"]::before,
+[data-wzm-safari-media-pending="1"]::after {
+    background-image: none !important;
+    mask-image: none !important;
+    -webkit-mask-image: none !important;
+    border-image-source: none !important;
+    list-style-image: none !important;
+}
+
 /* SPA image previews are often painted as CSS backgrounds before their final
    IMG exists. Give image-bearing CSS surfaces a zero paint size during startup
    and while an inline style is awaiting inspection. The URL stays available to
@@ -161,6 +203,16 @@ html.wizmage-running [data-wzm-shadow-pending="1"] {
     object-fit: fill !important;
 }
 
+/* WebKit 21624 can corrupt Amazon's transient text-control renderer after a
+   replaced element's generated content changes. Keep the original resource and
+   box metrics intact in Safari's guarded renderer; move only its painted object
+   out of the box so the normal Wizmage pattern can paint behind it. */
+[data-wzm-safari-locked="1"] {
+    object-fit: none !important;
+    object-position: -100000px -100000px !important;
+    color: transparent !important;
+}
+
 [data-wzm-pattern-bg-img="1"] {
     background-repeat: repeat !important;
     background-size: auto !important;
@@ -235,7 +287,8 @@ html.wizmage-running [data-wzm-shadow-pending="1"] {
     content: none !important;
 }
 
-svg[data-wzm-locked="1"] > * {
+svg[data-wzm-locked="1"] > *,
+svg[data-wzm-safari-locked="1"] > * {
     visibility: hidden !important;
 }
 

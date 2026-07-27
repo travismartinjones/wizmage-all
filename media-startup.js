@@ -2,7 +2,9 @@
     'use strict';
 
     const CLASS_NAME = 'wizmage-media-starting';
+    const SAFARI_CLASS_NAME = 'wizmage-safari-media-starting';
     const FAIL_OPEN_MS = 2000;
+    const SAFARI_FAIL_OPEN_MS = 10000;
     const doc = root && root.document;
     const userAgent = String(root && root.navigator && root.navigator.userAgent || '');
     const pageHost = String(root && root.location && root.location.hostname || '').toLowerCase();
@@ -12,15 +14,152 @@
     const isAmazonPage = pageHost === 'amazon.com'
         || pageHost.endsWith('.amazon.com')
         || /^https?:\/\/(?:[^/?#]+\.)?amazon\.com(?::\d+)?(?:[/?#]|$)/i.test(referrer);
-    const compatibilityBypass = isSafari && isAmazonPage;
+    const safariLayoutSafe = isSafari && isAmazonPage;
     let failOpenTimer = null;
     let rootObserver = null;
+    let videoObserver = null;
+    const guardedVideos = new Set();
+    const settledVideos = new WeakSet();
+    const userActivationExpires = new WeakMap();
+
+    function isVideo(element) {
+        return String(element && element.tagName || '').toUpperCase() === 'VIDEO';
+    }
+
+    function isVideoBlocked(video) {
+        return !!(video && video.getAttribute
+            && video.getAttribute('data-wzm-safari-locked') === '1');
+    }
+
+    function pauseVideo(video) {
+        if (!safariLayoutSafe || !isVideo(video))
+            return;
+        guardedVideos.add(video);
+        try { video.pause(); } catch (error) { /* detached or protected media */ }
+    }
+
+    function guardVideo(video) {
+        if (!isVideo(video))
+            return;
+        if (settledVideos.has(video) && !isVideoBlocked(video))
+            return;
+        pauseVideo(video);
+    }
+
+    function guardVideoTree(node) {
+        if (!node || node.nodeType !== 1)
+            return;
+        guardVideo(node);
+        if (!node.querySelectorAll)
+            return;
+        let videos;
+        try { videos = node.querySelectorAll('video'); } catch (error) { return; }
+        for (const video of videos)
+            guardVideo(video);
+    }
+
+    function forgetVideoTree(node) {
+        if (!node || node.nodeType !== 1)
+            return;
+        if (isVideo(node))
+            guardedVideos.delete(node);
+        if (!node.querySelectorAll)
+            return;
+        let videos;
+        try { videos = node.querySelectorAll('video'); } catch (error) { return; }
+        for (const video of videos)
+            guardedVideos.delete(video);
+    }
+
+    function releaseVideoIfAllowed(video) {
+        if (!video || isVideoBlocked(video))
+            return false;
+        guardedVideos.delete(video);
+        // Do not synthesize playback after filtering. Amazon retries autoplay
+        // independently; the capture guard below permits playback only after a
+        // direct user gesture on the video.
+        return true;
+    }
+
+    function resumeAllowedVideos() {
+        for (const video of Array.from(guardedVideos)) {
+            if (!video || !video.isConnected) {
+                guardedVideos.delete(video);
+                continue;
+            }
+            if (!isVideoBlocked(video))
+                releaseVideoIfAllowed(video);
+        }
+    }
+
+    function settleVideo(video, blocked) {
+        if (!safariLayoutSafe || !isVideo(video))
+            return;
+        settledVideos.add(video);
+        if (blocked) {
+            pauseVideo(video);
+            return;
+        }
+        const element = doc && doc.documentElement;
+        const gateActive = !!(element && element.classList.contains(SAFARI_CLASS_NAME));
+        if (!gateActive)
+            releaseVideoIfAllowed(video);
+    }
+
+    function startVideoGuard() {
+        if (!safariLayoutSafe || !doc)
+            return;
+        try {
+            const authorizeVideoFromEvent = function (event) {
+                const path = event && typeof event.composedPath === 'function'
+                    ? event.composedPath() : [event && event.target];
+                for (const candidate of path) {
+                    if (!isVideo(candidate))
+                        continue;
+                    userActivationExpires.set(candidate, Date.now() + 1500);
+                    break;
+                }
+            };
+            doc.addEventListener('pointerdown', authorizeVideoFromEvent, true);
+            doc.addEventListener('keydown', authorizeVideoFromEvent, true);
+            doc.addEventListener('play', function (event) {
+                const video = event && event.target;
+                if (!isVideo(video))
+                    return;
+                const userActivated = (userActivationExpires.get(video) || 0) >= Date.now();
+                userActivationExpires.delete(video);
+                if (!userActivated || !settledVideos.has(video) || isVideoBlocked(video))
+                    pauseVideo(video);
+            }, true);
+        } catch (error) { /* inaccessible document */ }
+        guardVideoTree(doc.documentElement);
+        if (typeof root.MutationObserver !== 'function')
+            return;
+        videoObserver = new root.MutationObserver(function (mutations) {
+            for (const mutation of mutations) {
+                for (const node of mutation.addedNodes || [])
+                    guardVideoTree(node);
+                for (const node of mutation.removedNodes || [])
+                    forgetVideoTree(node);
+            }
+        });
+        try {
+            videoObserver.observe(doc, { childList: true, subtree: true });
+        } catch (error) {
+            videoObserver = null;
+        }
+    }
 
     function setActive(active) {
         const element = doc && doc.documentElement;
         if (!element)
             return false;
-        element.classList.toggle(CLASS_NAME, !!active);
+        const className = safariLayoutSafe ? SAFARI_CLASS_NAME : CLASS_NAME;
+        element.classList.toggle(className, !!active);
+        if (!active) {
+            element.classList.toggle(CLASS_NAME, false);
+            element.classList.toggle(SAFARI_CLASS_NAME, false);
+        }
         return true;
     }
 
@@ -30,7 +169,7 @@
         failOpenTimer = root.setTimeout(function () {
             failOpenTimer = null;
             release();
-        }, FAIL_OPEN_MS);
+        }, safariLayoutSafe ? SAFARI_FAIL_OPEN_MS : FAIL_OPEN_MS);
     }
 
     function cancelFailOpen() {
@@ -56,19 +195,11 @@
     }
 
     function activate() {
-        if (compatibilityBypass) {
-            release();
-            return;
-        }
         ensureRootActivation();
         scheduleFailOpen();
     }
 
     function claim() {
-        if (compatibilityBypass) {
-            release();
-            return;
-        }
         ensureRootActivation();
         cancelFailOpen();
     }
@@ -80,6 +211,8 @@
             rootObserver = null;
         }
         setActive(false);
+        if (safariLayoutSafe)
+            resumeAllowedVideos();
     }
 
     const gate = Object.freeze({
@@ -88,11 +221,14 @@
         release,
         isActive: function () {
             const element = doc && doc.documentElement;
-            return !!(element && element.classList.contains(CLASS_NAME));
+            return !!(element && (element.classList.contains(CLASS_NAME)
+                || element.classList.contains(SAFARI_CLASS_NAME)));
         },
-        isCompatibilityBypassed: function () {
-            return compatibilityBypass;
-        }
+        usesSafariLayoutSafeMode: function () {
+            return safariLayoutSafe;
+        },
+        guardVideo,
+        settleVideo
     });
 
     try {
@@ -107,18 +243,16 @@
     }
 
     try {
-        Object.defineProperty(root, 'WizmageSafariCompatibilityBypass', {
+        Object.defineProperty(root, 'WizmageSafariLayoutSafe', {
             configurable: false,
             enumerable: false,
             writable: false,
-            value: compatibilityBypass
+            value: safariLayoutSafe
         });
     } catch (error) {
-        root.WizmageSafariCompatibilityBypass = compatibilityBypass;
+        root.WizmageSafariLayoutSafe = safariLayoutSafe;
     }
 
-    if (compatibilityBypass)
-        release();
-    else
-        activate();
+    startVideoGuard();
+    activate();
 })(globalThis);

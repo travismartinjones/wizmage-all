@@ -41,9 +41,11 @@
     const extensionDom = (chromeApi && chromeApi.dom) || (browserApi && browserApi.dom) || null;
     const storageLocal = storage && storage.local ? storage.local : null;
     const usePromiseApi = !!browserApi && (!chromeApi || chromeApi === browserApi);
-    const safariCompatibilityBypass = !!globalThis.WizmageSafariCompatibilityBypass;
+    const safariLayoutSafe = !!globalThis.WizmageSafariLayoutSafe;
     const ANALYSIS_TIMEOUT_MS = 21000;
     const SETTINGS_FAIL_OPEN_MS = 5000;
+    const SAFARI_LAYOUT_SETTLE_MS = 750;
+    const SAFARI_LAYOUT_FALLBACK_MS = 10000;
     const MAX_ANALYSIS_URL_CHARS = 512 * 1024;
     const MAX_NETWORK_URL_CHARS = 32 * 1024;
     const MAX_PAGE_URL_CHARS = 16 * 1024;
@@ -115,18 +117,6 @@
             finish(undefined);
             return null;
         }
-    }
-
-    // WebKit 21624 can corrupt its textarea renderer when amazon.com is
-    // restyled from a Safari content script, then crash later on its own layout
-    // timer. Fail open on that one browser/site combination before installing
-    // observers or changing page layout. The popup and background worker remain
-    // available, and every other site keeps normal filtering.
-    if (safariCompatibilityBypass) {
-        releaseMediaGate();
-        if (window === top)
-            sendMessage({ r: 'setColorIcon', toggle: false });
-        return;
     }
 
     function addRuntimeListener(listener) {
@@ -215,6 +205,7 @@
             },
             sendMessage,
             analyze: analyzeImage,
+            safariLayoutSafe,
             onError: function (error, element) {
                 try {
                     console.warn('Wizmage skipped an element after an isolated scan error', error, element);
@@ -480,7 +471,8 @@
             controller.updateSettings(next);
         }
         else {
-            prepareFilteringRoot();
+            if (!safariLayoutSafe)
+                prepareFilteringRoot();
             controller = new Controller(window, next, makeEnvironment());
             controller.start();
         }
@@ -494,15 +486,17 @@
         const requiresAuthority = !hasAuthoritativeSettings;
         const coldStart = requiresAuthority && !controller && !manualShow;
         const hasWorker = !!(runtime && runtime.sendMessage);
-        if (requiresAuthority && hasWorker)
+        if (requiresAuthority && hasWorker && !safariLayoutSafe)
             holdMediaAuthorityGate();
         if (coldStart) {
-            const gate = globalThis.WizmageMediaGate;
-            if (gate && typeof gate.claim === 'function')
-                gate.claim();
-            else if (document.documentElement)
-                document.documentElement.classList.add('wizmage-media-starting');
-            prepareFilteringRoot();
+            if (!safariLayoutSafe) {
+                const gate = globalThis.WizmageMediaGate;
+                if (gate && typeof gate.claim === 'function')
+                    gate.claim();
+                else if (document.documentElement)
+                    document.documentElement.classList.add('wizmage-media-starting');
+                prepareFilteringRoot();
+            }
         }
         if (cancelSettingsRequest)
             cancelSettingsRequest();
@@ -759,11 +753,46 @@
         }
     });
 
-    try {
-        prepareFilteringRoot();
+    function startContentRuntime() {
+        if (!safariLayoutSafe)
+            prepareFilteringRoot();
         installPageUrlListeners();
         installStorageRefreshListeners();
         requestEffectiveSettings();
+    }
+
+    try {
+        if (!safariLayoutSafe) {
+            startContentRuntime();
+            return;
+        }
+
+        // WebKit 21624 can corrupt Amazon's transient textarea renderer when a
+        // content script changes layout during document construction. Keep the
+        // layout untouched until its initial load settles. The paint-only media
+        // gate remains active from document_start, so raw pixels never appear
+        // before the direct-media controller has made its decisions.
+        const safeGate = globalThis.WizmageMediaGate;
+        if (safeGate && typeof safeGate.claim === 'function')
+            safeGate.claim();
+        if (window === top)
+            setIcon(false);
+        let started = false;
+        let fallbackTimer = null;
+        const startOnce = () => {
+            if (started)
+                return;
+            started = true;
+            if (fallbackTimer != null)
+                clearTimeout(fallbackTimer);
+            startContentRuntime();
+        };
+        const startAfterSettle = () => setTimeout(startOnce, SAFARI_LAYOUT_SETTLE_MS);
+        fallbackTimer = setTimeout(startOnce, SAFARI_LAYOUT_FALLBACK_MS);
+        if (document.readyState === 'complete')
+            startAfterSettle();
+        else
+            window.addEventListener('load', startAfterSettle, { once: true });
     } catch (error) {
         releaseMediaGate();
         try { console.error('Wizmage failed open during startup', error); } catch (err) { /* ignore */ }

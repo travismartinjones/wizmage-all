@@ -138,9 +138,33 @@ function testMediaStartupGate() {
 
   const safariAmazonTimers = makeFakeTimers();
   const safariAmazonClasses = new Set();
+  const safariVideoAttributes = new Map();
+  let safariVideoPauseCount = 0;
+  let safariVideoPlayCount = 0;
+  const safariVideo = {
+    nodeType: 1,
+    tagName: "VIDEO",
+    autoplay: true,
+    paused: false,
+    isConnected: true,
+    getAttribute(name) { return safariVideoAttributes.get(name) || null; },
+    querySelectorAll() { return []; },
+    pause() {
+      safariVideoPauseCount += 1;
+      this.paused = true;
+    },
+    play() {
+      safariVideoPlayCount += 1;
+      this.paused = false;
+      return Promise.resolve();
+    },
+  };
   const safariAmazonContext = vm.createContext({
     document: {
       documentElement: {
+        nodeType: 1,
+        tagName: "HTML",
+        querySelectorAll(selector) { return selector === "video" ? [safariVideo] : []; },
         classList: {
           contains(value) { return safariAmazonClasses.has(value); },
           toggle(value, active) {
@@ -149,6 +173,7 @@ function testMediaStartupGate() {
           },
         },
       },
+      addEventListener() {},
       referrer: "",
     },
     location: { hostname: "www.amazon.com" },
@@ -160,18 +185,45 @@ function testMediaStartupGate() {
   });
   vm.runInContext(source, safariAmazonContext, { filename: "media-startup-safari-amazon.js" });
   assert.equal(
-    safariAmazonContext.WizmageSafariCompatibilityBypass,
+    safariAmazonContext.WizmageSafariLayoutSafe,
     true,
-    "Safari on amazon.com did not enter compatibility mode.",
+    "Safari on amazon.com did not enter layout-safe mode.",
   );
   assert(
-    !safariAmazonClasses.has("wizmage-media-starting") && safariAmazonTimers.timers.size === 0,
-    "Safari compatibility mode activated or retained the startup layout gate.",
+    safariAmazonClasses.has("wizmage-safari-media-starting")
+      && !safariAmazonClasses.has("wizmage-media-starting"),
+    "Safari layout-safe mode did not activate its paint-only startup gate.",
   );
+  assert.equal(safariVideoPauseCount, 1, "Safari layout-safe mode did not pause initial autoplay media.");
+  const safariFailOpen = Array.from(safariAmazonTimers.timers.entries())
+    .find(([, timer]) => timer.delay === 10000);
+  assert(safariFailOpen, "Safari layout-safe mode omitted its bounded fail-open.");
   safariAmazonContext.WizmageMediaGate.claim();
   assert(
-    !safariAmazonClasses.has("wizmage-media-starting"),
-    "A controller claim reactivated the Safari compatibility gate.",
+    safariAmazonClasses.has("wizmage-safari-media-starting")
+      && safariAmazonTimers.timers.size === 0,
+    "A controller claim did not preserve and claim the Safari paint-only gate.",
+  );
+  safariAmazonContext.WizmageMediaGate.settleVideo(safariVideo, false);
+  assert.equal(
+    safariVideoPlayCount,
+    0,
+    "A safe autoplay video resumed before the initial media gate was released.",
+  );
+  safariAmazonContext.WizmageMediaGate.release();
+  assert.equal(
+    safariVideoPlayCount,
+    0,
+    "A safe autoplay video resumed without direct user activation.",
+  );
+  safariVideoAttributes.set("data-wzm-safari-locked", "1");
+  safariAmazonContext.WizmageMediaGate.guardVideo(safariVideo);
+  safariAmazonContext.WizmageMediaGate.settleVideo(safariVideo, true);
+  safariAmazonContext.WizmageMediaGate.release();
+  assert.equal(
+    safariVideoPlayCount,
+    0,
+    "A blocked autoplay video resumed after filtering settled.",
   );
 
   const delayedTimers = makeFakeTimers();
@@ -502,7 +554,9 @@ function createContentHarness(shared, options = {}) {
   const documentListeners = new Map();
   const controllers = [];
   const pendingSettingsCallbacks = [];
-  const classNames = new Set(["wizmage-media-starting"]);
+  const classNames = new Set([
+    options.safariLayoutSafe ? "wizmage-safari-media-starting" : "wizmage-media-starting",
+  ]);
   let throwAnalyzeMessages = false;
   const settings = Object.assign(
     {},
@@ -521,7 +575,9 @@ function createContentHarness(shared, options = {}) {
     }
     start() {
       this.active = true;
-      classNames.add("wizmage-media-starting");
+      classNames.add(this.environment.safariLayoutSafe
+        ? "wizmage-safari-media-starting"
+        : "wizmage-media-starting");
       if (options.throwControllerStart)
         throw new Error("fixture controller startup failure");
     }
@@ -539,11 +595,22 @@ function createContentHarness(shared, options = {}) {
     WizmageShared: shared,
     WizmageContentController: FakeController,
     WizmageMediaGate: {
-      activate() { classNames.add("wizmage-media-starting"); },
-      claim() { classNames.add("wizmage-media-starting"); },
-      release() { classNames.delete("wizmage-media-starting"); },
+      activate() {
+        classNames.add(options.safariLayoutSafe
+          ? "wizmage-safari-media-starting"
+          : "wizmage-media-starting");
+      },
+      claim() {
+        classNames.add(options.safariLayoutSafe
+          ? "wizmage-safari-media-starting"
+          : "wizmage-media-starting");
+      },
+      release() {
+        classNames.delete("wizmage-media-starting");
+        classNames.delete("wizmage-safari-media-starting");
+      },
     },
-    WizmageSafariCompatibilityBypass: !!options.safariCompatibilityBypass,
+    WizmageSafariLayoutSafe: !!options.safariLayoutSafe,
     chrome: {
       runtime: {
         lastError: null,
@@ -584,6 +651,7 @@ function createContentHarness(shared, options = {}) {
     clearTimeout: timers.clearTimeout,
     console: { warn() {}, error() {}, log() {} },
     document: {
+      readyState: options.readyState || "loading",
       visibilityState: options.visibilityState || "visible",
       documentElement: {
         classList: {
@@ -848,15 +916,31 @@ async function testAuthenticatedSlackImagePreparation(harness) {
 
 function testContentBackpressureAndManualRefresh(shared) {
   const safariCompatibilityHarness = createContentHarness(shared, {
-    safariCompatibilityBypass: true,
+    safariLayoutSafe: true,
+    readyState: "complete",
   });
   assert(
     safariCompatibilityHarness.controllers.length === 0 &&
       safariCompatibilityHarness.settingsMessages.length === 0 &&
-      safariCompatibilityHarness.runtimeListeners.length === 0 &&
+      safariCompatibilityHarness.runtimeListeners.length === 1 &&
       !safariCompatibilityHarness.classNames.has("wizmage-media-starting") &&
-      safariCompatibilityHarness.classNames.has("wizmage-show-html"),
-    "Safari compatibility mode touched page layout or started filtering.",
+      safariCompatibilityHarness.classNames.has("wizmage-safari-media-starting"),
+    "Safari layout-safe mode touched page layout before startup.",
+  );
+  const safariSettleTimer = Array.from(safariCompatibilityHarness.timers.timers.entries())
+    .find(([, timer]) => timer.delay === 750);
+  assert(safariSettleTimer, "Safari layout-safe mode omitted its post-load settle timer.");
+  safariCompatibilityHarness.timers.run(safariSettleTimer[0]);
+  assert(
+    safariCompatibilityHarness.controllers.length === 1 &&
+      safariCompatibilityHarness.settingsMessages.length === 1 &&
+      safariCompatibilityHarness.runtimeListeners.length === 1,
+    "Safari layout-safe mode did not start direct-media filtering after load settled.",
+  );
+  assert.equal(
+    safariCompatibilityHarness.controllers[0].environment.safariLayoutSafe,
+    true,
+    "Safari layout-safe mode was not passed to the content controller.",
   );
 
   const delayedHarness = createContentHarness(shared, { holdSettings: true });

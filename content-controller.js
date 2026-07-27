@@ -17,6 +17,7 @@
     const DIRECT_MEDIA_SELECTOR = 'img,input[type="image"],canvas,svg,image,object,embed,video';
     const INLINE_STYLE_MEDIA_SELECTOR = '[style*="url("]';
     const MEDIA_PENDING_ATTRIBUTE = 'data-wzm-media-pending';
+    const SAFARI_MEDIA_PENDING_ATTRIBUTE = 'data-wzm-safari-media-pending';
     const SHADOW_HOST_PENDING_ATTRIBUTE = 'data-wzm-shadow-pending';
     const EARLY_SHADOW_MEDIA_HOST_SELECTOR = 'syndigo-powerpage';
     const EARLY_SHADOW_MEDIA_HOSTS = new Set(['syndigo-powerpage']);
@@ -25,8 +26,10 @@
     const INITIAL_MEDIA_GATE_MIN_MS = 1750;
     const INITIAL_MEDIA_GATE_FAIL_OPEN_MS = 10000;
     const VISUAL_ATTRIBUTES = [
-        'data-wzm-hide', 'data-wzm-locked', 'data-wzm-pattern-bg-img', 'data-wzm-shade',
-        'data-wzm-checking', 'data-wzm-always', 'data-wzm-no-pattern', MEDIA_PENDING_ATTRIBUTE,
+        'data-wzm-hide', 'data-wzm-locked', 'data-wzm-safari-locked',
+        'data-wzm-pattern-bg-img', 'data-wzm-shade',
+        'data-wzm-checking', 'data-wzm-always', 'data-wzm-no-pattern',
+        MEDIA_PENDING_ATTRIBUTE, SAFARI_MEDIA_PENDING_ATTRIBUTE,
         'data-wzm-suppress-media', 'data-wzm-suppress-content',
         'data-wzm-suppress-self-media', 'data-wzm-suppress-before-media', 'data-wzm-suppress-after-media',
         'data-wzm-suppress-self-background', 'data-wzm-suppress-self-mask',
@@ -79,6 +82,7 @@
             this.doc = win.document;
             this.settings = Shared.normalizeSettings(settings);
             this.environment = environment || {};
+            this.usesSafariLayoutSafeMode = !!this.environment.safariLayoutSafe;
             const userAgent = String(win.navigator && win.navigator.userAgent || '');
             this.usesSafariTextControlLayoutGuard = /\bSafari\//.test(userAgent)
                 && !/\b(?:Chrome|Chromium|CriOS|Edg|EdgiOS|OPR|FxiOS)\//.test(userAgent);
@@ -179,8 +183,10 @@
                     this.begin();
                     this.createEye();
                     if (this.doc.body) {
-                        this.markPendingMediaTree(this.doc.body, true);
-                        this.markPendingShadowHostTree(this.doc.body, true);
+                        if (!this.usesSafariLayoutSafeMode) {
+                            this.markPendingMediaTree(this.doc.body, true);
+                            this.markPendingShadowHostTree(this.doc.body, true);
+                        }
                         this.queueTree(this.doc.body, true);
                     }
                     else {
@@ -199,13 +205,18 @@
                 return;
             this.started = true;
             this.noteTextareaLayoutHazard(this.doc);
-            this.doc.documentElement.classList.add('wizmage-running');
-            this.applyPatternVariables(this.doc);
+            if (!this.usesSafariLayoutSafeMode) {
+                this.doc.documentElement.classList.add('wizmage-running');
+                this.applyPatternVariables(this.doc);
+            }
             this.createEye();
-            this.markPendingMediaTree(this.doc.documentElement, true);
-            this.markPendingShadowHostTree(this.doc.documentElement, true);
+            if (!this.usesSafariLayoutSafeMode) {
+                this.markPendingMediaTree(this.doc.documentElement, true);
+                this.markPendingShadowHostTree(this.doc.documentElement, true);
+            }
             this.observeRoot(this.doc);
-            this.observeCssResources();
+            if (!this.usesSafariLayoutSafeMode)
+                this.observeCssResources();
             this.installLifecycleListeners();
             this.queueTree(this.doc.documentElement, true);
             this.lastFullScanAt = Date.now();
@@ -428,9 +439,11 @@
             this.cancelInitialMediaGateTimeout();
             this.initialMediaGatePending = true;
             this.initialMediaGateStartedAt = this.now();
-            if (!this.invokeMediaGate('claim') && !this.invokeMediaGate('activate'))
+            if (!this.invokeMediaGate('claim') && !this.invokeMediaGate('activate')
+                && !this.usesSafariLayoutSafeMode)
                 this.setRootClass('wizmage-media-starting', true);
-            this.setRootClass('wizmage-show-html', false);
+            if (!this.usesSafariLayoutSafeMode)
+                this.setRootClass('wizmage-show-html', false);
             this.initialMediaGateTimeout = this.setTrackedTimeout(() => {
                 this.initialMediaGateTimeout = null;
                 this.initialMediaGatePending = false;
@@ -545,6 +558,8 @@
         }
 
         markInlineStyleMediaPending(element) {
+            if (this.usesSafariLayoutSafeMode)
+                return false;
             if (!this.active || !element || element.nodeType !== 1 || !element.getAttribute
                 || !this.hasInlineStyleMedia(element))
                 return false;
@@ -559,10 +574,18 @@
         markMediaPending(element) {
             if (!this.active || !this.isDirectMediaElement(element) || !element.getAttribute)
                 return false;
-            if (element.getAttribute(MEDIA_PENDING_ATTRIBUTE) === '1')
+            const attribute = this.usesSafariLayoutSafeMode
+                ? SAFARI_MEDIA_PENDING_ATTRIBUTE : MEDIA_PENDING_ATTRIBUTE;
+            if (element.getAttribute(attribute) === '1')
                 return true;
             this.pendingMediaElements.set(element, this.now());
-            this.writeAttribute(element, MEDIA_PENDING_ATTRIBUTE, '1');
+            this.writeAttribute(element, attribute, '1');
+            if (this.usesSafariLayoutSafeMode
+                && String(element.tagName || '').toUpperCase() === 'VIDEO') {
+                const gate = this.win && this.win.WizmageMediaGate;
+                if (gate && typeof gate.guardVideo === 'function')
+                    gate.guardVideo(element);
+            }
             this.schedulePendingMediaFailOpen();
             return true;
         }
@@ -572,6 +595,7 @@
                 return;
             this.pendingMediaElements.delete(element);
             this.writeAttribute(element, MEDIA_PENDING_ATTRIBUTE, null);
+            this.writeAttribute(element, SAFARI_MEDIA_PENDING_ATTRIBUTE, null);
         }
 
         isEarlyShadowMediaHost(element) {
@@ -946,6 +970,10 @@
         }
 
         runMaintenance() {
+            if (this.usesSafariLayoutSafeMode) {
+                this.retryExpiredAnalyses();
+                return;
+            }
             const signature = this.computeStylesheetSignature();
             if (this.stylesheetSignature != null && signature !== this.stylesheetSignature) {
                 // CSSStyleSheet.insertRule/replaceSync and adoptedStyleSheets do
@@ -2088,7 +2116,8 @@
         }
 
         inspectElement(element) {
-            this.discoverShadowRoot(element);
+            if (!this.usesSafariLayoutSafeMode)
+                this.discoverShadowRoot(element);
             // HTML tagName values are usually uppercase, while SVG tagName values are
             // lowercase in Chromium. Normalize once so SVG roots and <image> nodes take
             // the same inspection path as HTML media elements.
@@ -2117,7 +2146,8 @@
             else if (tag === 'VIDEO')
                 this.inspectVideoPoster(element);
 
-            if (!SKIP_BACKGROUND_TAGS.test(tag) && !this.hasSeenTextareaLayoutHazard)
+            if (!this.usesSafariLayoutSafeMode
+                && !SKIP_BACKGROUND_TAGS.test(tag) && !this.hasSeenTextareaLayoutHazard)
                 this.inspectBackground(element);
         }
 
@@ -2391,7 +2421,8 @@
             // An unknown size is deliberately conservative: sizeNeedsBlocking
             // treats it as a candidate, so direct media remains filtered without
             // asking WebKit to lay out the document.
-            if (this.usesSafariTextControlLayoutGuard && this.hasSeenTextareaLayoutHazard)
+            if (this.usesSafariLayoutSafeMode
+                || (this.usesSafariTextControlLayoutGuard && this.hasSeenTextareaLayoutHazard))
                 return { width: 0, height: 0 };
             return Shared.renderedSize(element);
         }
@@ -2403,6 +2434,7 @@
                 return;
             }
             this.clearRecordKind(element, 'video-poster');
+            this.settleSafariVideo(element, false);
         }
 
         inspectUrlElement(element, kind, rawUrl, extraKey) {
@@ -2900,6 +2932,7 @@
             if (!blocked.length) {
                 for (const attribute of VISUAL_ATTRIBUTES)
                     this.writeAttribute(element, attribute, null);
+                this.settleSafariVideo(element, false);
                 return;
             }
             const priority = { bad: 4, checking: 3, unchecked: 2, always: 1 };
@@ -2946,8 +2979,21 @@
             writeSurfaceAttributes('self');
             writeSurfaceAttributes('before');
             writeSurfaceAttributes('after');
-            this.writeAttribute(element, 'data-wzm-locked', blocksReplacedElement ? '1' : null);
+            this.writeAttribute(element, 'data-wzm-locked',
+                blocksReplacedElement && !this.usesSafariLayoutSafeMode ? '1' : null);
+            this.writeAttribute(element, 'data-wzm-safari-locked',
+                blocksReplacedElement && this.usesSafariLayoutSafeMode ? '1' : null);
             this.writeAttribute(element, 'data-wzm-hide', blocked.some(record => record.kind === 'svg-image') ? '1' : null);
+            this.settleSafariVideo(element, blocksReplacedElement);
+        }
+
+        settleSafariVideo(element, blocked) {
+            if (!this.usesSafariLayoutSafeMode
+                || String(element && element.tagName || '').toUpperCase() !== 'VIDEO')
+                return;
+            const gate = this.win && this.win.WizmageMediaGate;
+            if (gate && typeof gate.settleVideo === 'function')
+                gate.settleVideo(element, !!blocked);
         }
 
         repairVisual(record) {
@@ -3140,7 +3186,7 @@
         }
 
         createEye() {
-            if (this.eye || !this.doc.body)
+            if (this.usesSafariLayoutSafeMode || this.eye || !this.doc.body)
                 return;
             const eye = this.doc.createElement('button');
             eye.type = 'button';
