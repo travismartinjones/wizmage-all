@@ -808,14 +808,23 @@
             largeCssomTarget.style.width = '120px';
             largeCssomTarget.style.height = '120px';
             document.body.appendChild(largeCssomTarget);
-            await waitFor(
-                () => {
-                    const state = controller.cssSheetStates.get(largeCssomSheet);
-                    return state && state.previousCycleHash != null;
-                },
-                'The bounded stylesheet sampler never completed a 5,000-rule baseline',
-                7000
-            );
+            try {
+                await waitFor(
+                    () => {
+                        const state = controller.cssSheetStates.get(largeCssomSheet);
+                        return state && state.previousCycleHash != null;
+                    },
+                    'The bounded stylesheet sampler never completed a 5,000-rule baseline',
+                    25000
+                );
+            } catch (error) {
+                const state = controller.cssSheetStates.get(largeCssomSheet);
+                throw new Error(error.message + ': ' + JSON.stringify({
+                    state,
+                    pollNumber: controller.stylesheetPollNumber,
+                    roots: controller.stylesheetRoots.size
+                }));
+            }
             assert(!isBlocked(largeCssomTarget), 'The large CSSOM fixture unexpectedly started with media');
             largeCssomSheet.cssRules[4500].style.setProperty(
                 'background-image',

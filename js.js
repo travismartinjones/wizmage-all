@@ -69,6 +69,8 @@
     let analysisPumpTimer = null;
     let observedPageUrl = window === top ? String(location.href || '') : '';
     let pageUrlSignalTimer = null;
+    let storageRefreshPending = false;
+    let storageRefreshTimer = null;
 
     function getURL(path) {
         return runtime && runtime.getURL ? runtime.getURL(path) : path;
@@ -630,6 +632,7 @@
     }
 
     function restartFiltering(callback) {
+        clearScheduledStorageRefresh();
         manualShow = false;
         requestEffectiveSettings((ok, active) => {
             if (callback)
@@ -638,11 +641,52 @@
     }
 
     function refreshFiltering(callback, pageUrlHint) {
+        clearScheduledStorageRefresh();
         manualShow = false;
         requestEffectiveSettings((ok, active) => {
             if (callback)
                 callback({ ok: !!ok, active: !!active });
         }, pageUrlHint);
+    }
+
+    function clearScheduledStorageRefresh() {
+        storageRefreshPending = false;
+        if (storageRefreshTimer != null) {
+            clearTimeout(storageRefreshTimer);
+            storageRefreshTimer = null;
+        }
+    }
+
+    function scheduleStorageRefresh() {
+        storageRefreshPending = true;
+        if (document.visibilityState && document.visibilityState !== 'visible')
+            return;
+        if (storageRefreshTimer != null)
+            return;
+        storageRefreshTimer = setTimeout(() => {
+            storageRefreshTimer = null;
+            if (!storageRefreshPending)
+                return;
+            refreshFiltering();
+        }, 0);
+    }
+
+    function installStorageRefreshListeners() {
+        if (storage && storage.onChanged && storage.onChanged.addListener) {
+            storage.onChanged.addListener((changes, areaName) => {
+                if (!changes || (areaName !== 'local' && areaName !== 'session'))
+                    return;
+                const relevant = areaName === 'local'
+                    ? ['settings', 'urlList', 'allowSafeDomains']
+                    : ['pauseForTabs', 'excludeForTabs'];
+                if (relevant.some(key => Object.prototype.hasOwnProperty.call(changes, key)))
+                    scheduleStorageRefresh();
+            });
+        }
+        document.addEventListener('visibilitychange', () => {
+            if ((!document.visibilityState || document.visibilityState === 'visible') && storageRefreshPending)
+                scheduleStorageRefresh();
+        }, true);
     }
 
     function signalPageUrlChange() {
@@ -705,6 +749,7 @@
     try {
         prepareFilteringRoot();
         installPageUrlListeners();
+        installStorageRefreshListeners();
         requestEffectiveSettings();
     } catch (error) {
         releaseMediaGate();

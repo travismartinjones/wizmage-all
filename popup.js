@@ -415,17 +415,12 @@ wzmTabsQuery({ active: true, currentWindow: true }, function (tabs) {
             showPopupError('The setting could not be saved. Reopen the popup and try again.');
             return;
         }
-        // Worker-owned writes are propagated to every open content tab. A true
-        // no-runtime fallback waits until its active-tab transition or reload
-        // has been initiated before allowing the popup to close.
-        if (!wzmCanUseWorker) {
-            syncContentForSettings(wasActive, function () {
-                if (closeOnClick) close();
-            });
-            return;
-        }
-        if (closeOnClick)
-            close();
+        // The worker persists settings without fanning work out across every
+        // open tab. Update this tab directly; hidden tabs refresh themselves
+        // when they next become visible.
+        syncContentForSettings(wasActive, function () {
+            if (closeOnClick) close();
+        });
     }
     function runSettingsWrite(message, fallback, done) {
         settingsWriteQueue.push({ message: message, fallback: fallback, done: done });

@@ -901,6 +901,70 @@ async function waitForMv3SmokeResult(endpoint, fixtureUrl, options) {
     throw new Error("The manifest-loaded extension intercepted the site's button click.");
   }
 
+  const optionsTarget = await createPageTarget(
+    endpoint,
+    `chrome-extension://${extensionId}/options.htm?wzm-mv3-smoke=1`,
+  );
+  await waitForPageCondition(
+    optionsTarget,
+    `document.readyState !== "loading" &&
+      document.querySelector('input[name="block-target"][value="all"]')?.checked === true`,
+    "The MV3 options page did not load its initial block target",
+  );
+  const optionsResult = await evaluateTarget(
+    optionsTarget,
+    `new Promise(resolve => {
+      const input = document.querySelector('input[name="block-target"][value="women"]');
+      let heartbeat = 0;
+      const heartbeatTimer = setInterval(() => { heartbeat++; }, 25);
+      const clickedAt = Date.now();
+      const deadline = Date.now() + 1500;
+      const finish = stored => {
+        clearInterval(heartbeatTimer);
+        resolve({
+          checked: !!input?.checked,
+          heartbeat,
+          stored,
+          saveError: document.getElementById("save-status")?.classList.contains("show") || false
+        });
+      };
+      const poll = () => chrome.storage.local.get("settings", data => {
+        const stored = data?.settings?.blockTarget || "";
+        if ((stored === "women" && Date.now() - clickedAt >= 250) || Date.now() >= deadline) {
+          finish(stored);
+          return;
+        }
+        setTimeout(poll, 25);
+      });
+      input?.click();
+      poll();
+    })`,
+    true,
+  );
+  if (!optionsResult
+    || optionsResult.checked !== true
+    || optionsResult.stored !== "women"
+    || optionsResult.heartbeat < 3
+    || optionsResult.saveError) {
+    throw new Error(`The Women options-page control became unresponsive: ${JSON.stringify(optionsResult)}`);
+  }
+
+  await sendDevToolsCommand(
+    endpoint.browserWebSocketUrl,
+    "Target.closeTarget",
+    { targetId: optionsTarget.id },
+  );
+  const reopenedOptionsTarget = await createPageTarget(
+    endpoint,
+    `chrome-extension://${extensionId}/options.htm?wzm-mv3-reopen=1`,
+  );
+  await waitForPageCondition(
+    reopenedOptionsTarget,
+    `document.readyState !== "loading" &&
+      document.querySelector('input[name="block-target"][value="women"]')?.checked === true`,
+    "The MV3 options page did not reopen after selecting Women and closing it",
+  );
+
   // runtime.sendMessage does not loop a message back to the same service-worker
   // execution context. Use a real extension page so this exercises the same
   // popup -> worker -> storage -> content-script path as the shipped UI.
@@ -953,6 +1017,7 @@ async function waitForMv3SmokeResult(endpoint, fixtureUrl, options) {
   };
   const sendPause = async toggle => sendWorkerCommand({ r: "pause", toggle }, "pause");
 
+  await sendWorkerCommand({ r: "setBlockTarget", blockTarget: "all" }, "block target restore");
   await sendPause(true);
   await waitForPageCondition(
     pageTarget,

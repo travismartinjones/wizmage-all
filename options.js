@@ -472,12 +472,9 @@
                 release();
                 return;
             }
-            // Worker-owned writes are broadcast to all open tabs. Sending another
-            // active-tab command here would duplicate the controller transition.
-            if (wzmCanUseWorker) {
-                release();
-                return;
-            }
+            // Keep the worker write small and let this page update only the
+            // content tab the user came from. Background tabs catch up from
+            // storage when they become visible.
             wzmSyncActiveTab(wasActive, release);
         };
         if (!wzmCanUseWorker) {
@@ -613,7 +610,7 @@
     }
 
     for (let r of blockTargetRadios) {
-        r.onclick = function () {
+        r.onchange = function () {
             let value = this.value;
             wzmRunSettingsWrite(
                 { r: 'setBlockTarget', blockTarget: value },

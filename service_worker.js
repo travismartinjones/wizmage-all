@@ -70,7 +70,6 @@ let storageReconcileQueue = Promise.resolve();
 let lastWsCreateErrorLog = 0;
 const urlCache = new Map();
 const pendingCache = new Map();
-const tabRefreshSuppressions = new Map();
 const tabNavigationUrls = new Map();
 const storageMutationQueues = new Map();
 let sendQueue = null;
@@ -130,7 +129,7 @@ if (wzmChrome && wzmChrome.tabs && wzmChrome.tabs.onRemoved) {
                 if (excludeForTabs.length !== previousExcludeCount)
                     items.excludeForTabs = excludeForTabs;
                 return items;
-            }, true);
+            });
         } catch (err) {
             recordSwLog('tab-cleanup-error', { message: err && err.message ? err.message : String(err) });
         }
@@ -231,65 +230,14 @@ function storageAreaName(area) {
     return area === storageSession && storageSession !== storageLocal ? 'session' : 'local';
 }
 
-function suppressNextTabRefresh(areaName, key) {
-    const mapKey = areaName + ':' + key;
-    const current = tabRefreshSuppressions.get(mapKey);
-    tabRefreshSuppressions.set(mapKey, {
-        count: current && current.expires > Date.now() ? current.count + 1 : 1,
-        expires: Date.now() + 10000
-    });
-}
-
-function consumeTabRefreshSuppression(areaName, key) {
-    const mapKey = areaName + ':' + key;
-    const current = tabRefreshSuppressions.get(mapKey);
-    if (!current || current.expires <= Date.now()) {
-        tabRefreshSuppressions.delete(mapKey);
-        return false;
-    }
-    if (current.count <= 1)
-        tabRefreshSuppressions.delete(mapKey);
-    else
-        current.count--;
-    return true;
-}
-
-function releaseTabRefreshSuppression(areaName, key) {
-    const mapKey = areaName + ':' + key;
-    const current = tabRefreshSuppressions.get(mapKey);
-    if (!current)
-        return;
-    if (current.count <= 1)
-        tabRefreshSuppressions.delete(mapKey);
-    else
-        current.count--;
-}
-
-function queueStorageMutation(area, defaults, mutate, suppressContentRefresh) {
+function queueStorageMutation(area, defaults, mutate) {
     const queueKey = storageAreaName(area);
     const previous = storageMutationQueues.get(queueKey) || Promise.resolve();
     const runMutation = async () => {
         const data = await storageGet(area, defaults);
         const items = await mutate(data || {});
-        if (items && Object.keys(items).length) {
-            let suppressedKeys = [];
-            if (suppressContentRefresh) {
-                const areaName = storageAreaName(area);
-                suppressedKeys = Object.keys(items);
-                for (let key of suppressedKeys)
-                    suppressNextTabRefresh(areaName, key);
-            }
-            try {
-                await storageSet(area, items);
-            } catch (err) {
-                if (suppressContentRefresh) {
-                    const areaName = storageAreaName(area);
-                    for (let key of suppressedKeys)
-                        releaseTabRefreshSuppression(areaName, key);
-                }
-                throw err;
-            }
-        }
+        if (items && Object.keys(items).length)
+            await storageSet(area, items);
         return items;
     };
     const mutation = previous.then(runMutation, runMutation);
@@ -307,34 +255,6 @@ function sendRuntimeMessage(message) {
     } catch (err) {
         // The receiving extension page may have closed between the change and this broadcast.
     }
-}
-
-function queryTabs() {
-    if (!wzmChrome || !wzmChrome.tabs || !wzmChrome.tabs.query)
-        return Promise.resolve([]);
-    return new Promise(resolve => {
-        let settled = false;
-        const finish = tabs => {
-            if (settled) return;
-            settled = true;
-            resolve(Array.isArray(tabs) ? tabs : []);
-        };
-        try {
-            const maybePromise = wzmChrome.tabs.query({}, finish);
-            if (maybePromise && typeof maybePromise.then === 'function')
-                maybePromise.then(finish).catch(() => finish([]));
-        } catch (err) {
-            try {
-                const maybePromise = wzmChrome.tabs.query({});
-                if (maybePromise && typeof maybePromise.then === 'function')
-                    maybePromise.then(finish).catch(() => finish([]));
-                else
-                    finish([]);
-            } catch (retryError) {
-                finish([]);
-            }
-        }
-    });
 }
 
 function sendTabMessage(tabId, message) {
@@ -464,19 +384,7 @@ function getServerUrl(value) {
     return parseServerUrl(value && value.serverUrl) || DEFAULT_SERVER_URL;
 }
 
-function settingsAffectContent(previous, next) {
-    previous = previous || {};
-    next = next || {};
-    const keys = new Set([...Object.keys(previous), ...Object.keys(next)]);
-    keys.delete('closeOnClick');
-    for (const key of keys) {
-        if (previous[key] !== next[key])
-            return true;
-    }
-    return false;
-}
-
-async function broadcastStateChange(changedKeys, refreshContentTabs) {
+async function broadcastStateChange(changedKeys) {
     const revision = ++stateRevision;
     const keys = Array.from(new Set(changedKeys || []));
     const globalSettings = Object.assign({}, await getSettings());
@@ -491,23 +399,6 @@ async function broadcastStateChange(changedKeys, refreshContentTabs) {
     // Retain the notification consumed by the existing options page.
     if (keys.indexOf('urlList') !== -1)
         sendRuntimeMessage({ r: 'urlListModified', revision });
-
-    if (!refreshContentTabs)
-        return;
-
-    await refreshOpenContentTabs(keys, revision);
-}
-
-async function refreshOpenContentTabs(changedKeys, revision) {
-    // Content scripts need tab-specific effective settings, so ask each frame to refresh
-    // through the existing getSettings route rather than broadcasting global-only values.
-    const tabs = await queryTabs();
-    const message = {
-        r: 'refreshSettings',
-        changedKeys: Array.from(new Set(changedKeys || [])),
-        revision: revision || ++stateRevision
-    };
-    await Promise.all(tabs.map(tab => sendTabMessage(tab && tab.id, message)));
 }
 
 async function reconcileStorageChange(changes, areaName) {
@@ -515,15 +406,12 @@ async function reconcileStorageChange(changes, areaName) {
         return;
 
     const changedKeys = [];
-    const contentRelevantKeys = new Set();
     if (areaName === 'local') {
         if (changes.settings) {
             const previous = normalizeSettings(changes.settings.oldValue);
             const next = normalizeSettings(changes.settings.newValue);
             settings = next;
             changedKeys.push('settings');
-            if (settingsAffectContent(previous, next))
-                contentRelevantKeys.add('settings');
             if (getServerUrl(previous) !== getServerUrl(next)) {
                 clearAnalyzeCache();
                 abortAnalyzeRequests('server-url-changed');
@@ -539,18 +427,8 @@ async function reconcileStorageChange(changes, areaName) {
     if (changes.excludeForTabs)
         changedKeys.push('excludeForTabs');
 
-    for (const key of changedKeys) {
-        if (key !== 'settings')
-            contentRelevantKeys.add(key);
-    }
-
-    if (changedKeys.length) {
-        const refreshContentTabs = changedKeys.map(key => ({
-            key,
-            unsuppressed: !consumeTabRefreshSuppression(areaName, key)
-        })).some(item => item.unsuppressed && contentRelevantKeys.has(item.key));
-        await broadcastStateChange(changedKeys, refreshContentTabs);
-    }
+    if (changedKeys.length)
+        await broadcastStateChange(changedKeys);
 }
 
 if (wzmChrome && wzmChrome.storage && wzmChrome.storage.onChanged) {
@@ -724,12 +602,7 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
                     if (JSON.stringify(allowSafeDomains) === before)
                         return null;
                     return { allowSafeDomains };
-                }, true);
-                // Do not depend on a later storage.onChanged task surviving the
-                // MV3 worker response boundary. Refresh content before the popup
-                // is told the toggle succeeded; the suppressed storage event
-                // still notifies extension pages without duplicating this pass.
-                await refreshOpenContentTabs(['allowSafeDomains']);
+                });
                 sendResponse({ ok: true });
                 break;
             }
@@ -815,8 +688,13 @@ function updateSettings(updateFn) {
     const runUpdate = async () => {
         let current = normalizeSettings((await storageGet(storageLocal, 'settings')).settings);
         const previousServerUrl = getServerUrl(current);
+        const previousSettings = JSON.stringify(current);
         updateFn(current);
         const nextSettings = normalizeSettings(current);
+        if (JSON.stringify(nextSettings) === previousSettings) {
+            settings = nextSettings;
+            return;
+        }
         if (previousServerUrl !== getServerUrl(nextSettings)) {
             clearAnalyzeCache();
             abortAnalyzeRequests('server-url-changed');

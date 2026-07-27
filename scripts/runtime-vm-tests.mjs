@@ -189,14 +189,23 @@ function createWorkerHarness(shared, options = {}) {
   const slackCookieQueries = [];
   const slackSessionRuleUpdates = [];
   const queriedTabs = [
-    { id: 11, url: "https://one.example/" },
-    { id: 22, url: "https://two.example/" },
-    { id: 33, url: "https://three.example/" },
+    { id: 11, windowId: 1, active: false, lastAccessed: 300, url: "https://one.example/" },
+    { id: 22, windowId: 1, active: false, lastAccessed: 200, url: "https://two.example/" },
+    {
+      id: 44,
+      windowId: 1,
+      active: true,
+      lastAccessed: 400,
+      openerTabId: 11,
+      url: "chrome-extension://fixture/options.htm",
+    },
+    { id: 33, windowId: 2, active: true, lastAccessed: 100, url: "https://three.example/" },
   ];
   const runtimeMessageEvent = makeEvent();
   const storageChangedEvent = makeEvent();
   const installedEvent = makeEvent();
   const removedEvent = makeEvent();
+  const activatedEvent = makeEvent();
   const updatedEvent = makeEvent();
   const local = makeStorageArea(
     {
@@ -306,10 +315,13 @@ function createWorkerHarness(shared, options = {}) {
       onChanged: storageChangedEvent,
     },
     tabs: {
+      onActivated: activatedEvent,
       onRemoved: removedEvent,
       onUpdated: updatedEvent,
-      query(_query, callback) {
-        const result = clone(queriedTabs);
+      query(query, callback) {
+        const result = clone(queriedTabs.filter(tab =>
+          !query || query.active == null || tab.active === query.active
+        ));
         if (callback) {
           callback(result);
         }
@@ -392,7 +404,6 @@ function createWorkerHarness(shared, options = {}) {
   updateSettings,
   pendingCache,
   tabNavigationUrls,
-  tabRefreshSuppressions,
   urlCache,
   constants: {
     CACHE_MAX,
@@ -421,6 +432,7 @@ function createWorkerHarness(shared, options = {}) {
 
   return {
     api: context.__wzmWorkerTest,
+    activatedEvent,
     authenticatedImageBitmapCloses: () => authenticatedImageBitmapCloses,
     authenticatedImageCanvases,
     authenticatedImageFetches,
@@ -448,6 +460,8 @@ function createContentHarness(shared, options = {}) {
   const analysisMessages = [];
   const settingsMessages = [];
   const runtimeListeners = [];
+  const storageChangedListeners = [];
+  const documentListeners = new Map();
   const controllers = [];
   const pendingSettingsCallbacks = [];
   const classNames = new Set(["wizmage-media-starting"]);
@@ -521,16 +535,27 @@ function createContentHarness(shared, options = {}) {
             return Promise.resolve(value);
           },
         } : null,
+        onChanged: {
+          addListener(listener) {
+            storageChangedListeners.push(listener);
+          },
+        },
       },
     },
     clearTimeout: timers.clearTimeout,
     console: { warn() {}, error() {}, log() {} },
     document: {
+      visibilityState: options.visibilityState || "visible",
       documentElement: {
         classList: {
           add(value) { classNames.add(value); },
           remove(value) { classNames.delete(value); },
         },
+      },
+      addEventListener(type, listener) {
+        if (!documentListeners.has(type))
+          documentListeners.set(type, []);
+        documentListeners.get(type).push(listener);
       },
     },
     location: { href: "https://one.example/start" },
@@ -550,6 +575,7 @@ function createContentHarness(shared, options = {}) {
     pendingSettingsCallbacks,
     runtimeListeners,
     settingsMessages,
+    storageChangedListeners,
     timers,
     respondSettings(nextSettings = settings) {
       const callback = pendingSettingsCallbacks.shift();
@@ -558,6 +584,18 @@ function createContentHarness(shared, options = {}) {
     },
     setHoldSettings(value) { holdSettings = !!value; },
     setAnalyzeSendFailure(value) { throwAnalyzeMessages = !!value; },
+    setStoredSettings(nextSettings) {
+      Object.assign(settings, clone(nextSettings || {}));
+    },
+    triggerStorageChange(changes, areaName = "local") {
+      for (const listener of storageChangedListeners)
+        listener(clone(changes), areaName);
+    },
+    setVisibility(value) {
+      base.document.visibilityState = value;
+      for (const listener of documentListeners.get("visibilitychange") || [])
+        listener();
+    },
   };
 }
 
@@ -1070,6 +1108,59 @@ function testContentBackpressureAndManualRefresh(shared) {
   assert.equal(harness.analysisMessages.length, beforeNewAnalysis + 1, "Canceled requests still occupied frame analysis slots.");
   harness.analysisMessages.at(-1).callback(0);
 
+  const storageRefreshHarness = createContentHarness(shared);
+  assert.equal(
+    storageRefreshHarness.storageChangedListeners.length,
+    1,
+    "The content script did not install direct settings-storage refresh handling.",
+  );
+  const initialSettingsRequestCount = storageRefreshHarness.settingsMessages.length;
+  storageRefreshHarness.setStoredSettings({ blockTarget: "women" });
+  storageRefreshHarness.triggerStorageChange({
+    settings: {
+      oldValue: { blockTarget: "people" },
+      newValue: { blockTarget: "women" },
+    },
+  });
+  const visibleRefreshTimer = Array.from(storageRefreshHarness.timers.timers.entries())
+    .find(([, timer]) => timer.delay === 0);
+  assert(visibleRefreshTimer, "A visible tab did not queue its own settings refresh.");
+  storageRefreshHarness.timers.run(visibleRefreshTimer[0]);
+  assert.equal(
+    storageRefreshHarness.settingsMessages.length,
+    initialSettingsRequestCount + 1,
+    "A visible tab did not request authoritative settings after storage changed.",
+  );
+  assert.equal(
+    storageRefreshHarness.controllers[0].settings.blockTarget,
+    "women",
+    "A visible tab did not apply the changed Women target.",
+  );
+
+  storageRefreshHarness.setVisibility("hidden");
+  storageRefreshHarness.setStoredSettings({ blockTarget: "men" });
+  storageRefreshHarness.triggerStorageChange({
+    settings: {
+      oldValue: { blockTarget: "women" },
+      newValue: { blockTarget: "men" },
+    },
+  });
+  assert.equal(
+    storageRefreshHarness.settingsMessages.length,
+    initialSettingsRequestCount + 1,
+    "A hidden tab reclassified media immediately after storage changed.",
+  );
+  storageRefreshHarness.setVisibility("visible");
+  const catchUpTimer = Array.from(storageRefreshHarness.timers.timers.entries())
+    .find(([, timer]) => timer.delay === 0);
+  assert(catchUpTimer, "A returning tab did not queue its deferred settings refresh.");
+  storageRefreshHarness.timers.run(catchUpTimer[0]);
+  assert.equal(
+    storageRefreshHarness.controllers[0].settings.blockTarget,
+    "men",
+    "A returning tab did not apply its deferred settings change.",
+  );
+
   const failureHarness = createContentHarness(shared);
   const failureController = failureHarness.controllers[0];
   const failureResults = [];
@@ -1118,7 +1209,14 @@ async function dispatchWorkerMessage(harness, request, sender) {
 }
 
 async function testSettingsWritesAndBroadcast(harness) {
-  const { api, local, localWrites, queriedTabs, runtimeMessages, tabMessages } = harness;
+  const {
+    activatedEvent,
+    api,
+    local,
+    localWrites,
+    runtimeMessages,
+    tabMessages,
+  } = harness;
   await Promise.all([
     api.updateSettings(settings => { settings.noPattern = true; }, { url: "chrome-extension://fixture/options.htm" }),
     api.updateSettings(settings => { settings.maxSafe = 77; }, { url: "chrome-extension://fixture/options.htm" }),
@@ -1126,6 +1224,19 @@ async function testSettingsWritesAndBroadcast(harness) {
   assert.equal(local.data.settings.noPattern, true);
   assert.equal(local.data.settings.maxSafe, 77);
   assert.equal(localWrites.filter(write => write.settings).length, 2);
+
+  const writesBeforeNoOp = localWrites.filter(write => write.settings).length;
+  const noOpResponse = await dispatchWorkerMessage(
+    harness,
+    { r: "setBlockTarget", blockTarget: "people" },
+    { url: "chrome-extension://fixture/options.htm" },
+  );
+  assert.equal(noOpResponse.ok, true, "An unchanged block target was not acknowledged.");
+  assert.equal(
+    localWrites.filter(write => write.settings).length,
+    writesBeforeNoOp,
+    "Clicking the selected block target wrote settings again.",
+  );
 
   const settingsWritesBeforeFailure = localWrites.filter(write => write.settings).length;
   local.failNextSet(new Error("fixture storage rejection"));
@@ -1170,14 +1281,16 @@ async function testSettingsWritesAndBroadcast(harness) {
 
   const settingsChanged = runtimeMessages.filter(message => message.r === "settingsChanged");
   assert.equal(settingsChanged.length, 1, "A UI-origin settings write emitted duplicate global broadcasts.");
-  assert.equal(tabMessages.length, queriedTabs.length, "A UI-origin settings write did not refresh every open tab exactly once.");
   assert.equal(
-    JSON.stringify(tabMessages.map(item => item.tabId).sort((left, right) => left - right)),
-    JSON.stringify(queriedTabs.map(tab => tab.id).sort((left, right) => left - right)),
+    tabMessages.length,
+    0,
+    "The worker fanned a settings change out to content tabs.",
   );
-  assert(tabMessages.every(item => item.message.r === "refreshSettings"));
-  assert.equal(new Set(tabMessages.map(item => item.message.revision)).size, 1);
-  assert.equal(api.tabRefreshSuppressions.size, 0, "A global UI settings write left a stale tab-refresh suppression.");
+  assert.equal(
+    activatedEvent.listeners.length,
+    0,
+    "The worker installed an eager activation refresh that can race the options-page close transition.",
+  );
 
   runtimeMessages.length = 0;
   tabMessages.length = 0;
@@ -1196,15 +1309,9 @@ async function testSettingsWritesAndBroadcast(harness) {
   );
   assert.equal(
     tabMessages.length,
-    queriedTabs.length,
-    "The safe-domain route acknowledged success before refreshing open content tabs.",
+    0,
+    "The safe-domain route fanned a settings change out to content tabs.",
   );
-  assert(
-    tabMessages.every(item => item.message.r === "refreshSettings"
-      && item.message.changedKeys.includes("allowSafeDomains")),
-    "The safe-domain route sent the wrong content update.",
-  );
-  const explicitSafeRefreshCount = tabMessages.length;
   await api.reconcileStorageChange(
     {
       allowSafeDomains: {
@@ -1217,13 +1324,8 @@ async function testSettingsWritesAndBroadcast(harness) {
   await flushPromises();
   assert.equal(
     tabMessages.length,
-    explicitSafeRefreshCount,
-    "The safe-domain storage event duplicated the route-owned content refresh.",
-  );
-  assert.equal(
-    api.tabRefreshSuppressions.size,
     0,
-    "The safe-domain route left a stale storage-refresh suppression.",
+    "The safe-domain storage event fanned work out from the worker.",
   );
 
   const closeOnClickPrevious = clone(local.data.settings);
@@ -1350,7 +1452,7 @@ export async function runRuntimeVmTests() {
   await testSettingsWritesAndBroadcast(harness);
   await testNavigationRefresh(harness);
   await testInvalidUrlListMutation(harness);
-  return { sharedAssertions: 20, workerAssertions: 100, contentAssertions: 79 };
+  return { sharedAssertions: 20, workerAssertions: 98, contentAssertions: 86 };
 }
 
 const invokedPath = process.argv[1] ? resolve(process.argv[1]) : "";
