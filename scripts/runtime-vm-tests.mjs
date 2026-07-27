@@ -226,6 +226,90 @@ function testMediaStartupGate() {
     "A blocked autoplay video resumed after filtering settled.",
   );
 
+  const safariGstxTimers = makeFakeTimers();
+  const safariGstxClasses = new Set();
+  const safariGstxVideoAttributes = new Map();
+  const safariGstxListeners = new Map();
+  let safariGstxPauseCount = 0;
+  const safariGstxVideo = {
+    nodeType: 1,
+    tagName: "VIDEO",
+    autoplay: true,
+    paused: false,
+    isConnected: true,
+    getAttribute(name) { return safariGstxVideoAttributes.get(name) || null; },
+    querySelectorAll() { return []; },
+    pause() {
+      safariGstxPauseCount += 1;
+      this.paused = true;
+    },
+  };
+  const safariGstxContext = vm.createContext({
+    top: {},
+    document: {
+      documentElement: {
+        nodeType: 1,
+        tagName: "HTML",
+        querySelectorAll(selector) { return selector === "video" ? [safariGstxVideo] : []; },
+        classList: {
+          contains(value) { return safariGstxClasses.has(value); },
+          toggle(value, active) {
+            if (active) safariGstxClasses.add(value);
+            else safariGstxClasses.delete(value);
+          },
+        },
+      },
+      addEventListener(type, listener) { safariGstxListeners.set(type, listener); },
+      referrer: "",
+    },
+    location: { hostname: "www.gstx.org" },
+    navigator: {
+      userAgent: "Mozilla/5.0 (Macintosh) Version/26.2 Safari/619.1.26",
+    },
+    setTimeout: safariGstxTimers.setTimeout,
+    clearTimeout: safariGstxTimers.clearTimeout,
+  });
+  vm.runInContext(source, safariGstxContext, { filename: "media-startup-safari-gstx.js" });
+  assert.equal(
+    safariGstxContext.WizmageSafariLayoutSafe,
+    false,
+    "A non-Amazon Safari page unexpectedly entered layout-safe mode.",
+  );
+  assert(
+    safariGstxClasses.has("wizmage-media-starting")
+      && !safariGstxClasses.has("wizmage-safari-media-starting"),
+    "A non-Amazon Safari page did not activate the normal startup media gate.",
+  );
+  assert.equal(safariGstxPauseCount, 1, "Safari did not pause initial GSTX autoplay media.");
+  safariGstxContext.WizmageMediaGate.claim();
+  safariGstxVideoAttributes.set("data-wzm-locked", "1");
+  safariGstxContext.WizmageMediaGate.settleVideo(safariGstxVideo, true);
+  assert(
+    safariGstxClasses.has("wizmage-video-frame-blocked"),
+    "A blocked embedded GSTX video left its frame overlays visible.",
+  );
+  safariGstxContext.WizmageMediaGate.release();
+  const blockedGstxPauseCount = safariGstxPauseCount;
+  safariGstxListeners.get("play")({ target: safariGstxVideo });
+  assert.equal(
+    safariGstxPauseCount,
+    blockedGstxPauseCount + 1,
+    "Safari allowed a Safe Blocked GSTX video to restart.",
+  );
+  safariGstxVideoAttributes.delete("data-wzm-locked");
+  safariGstxContext.WizmageMediaGate.settleVideo(safariGstxVideo, false);
+  assert(
+    !safariGstxClasses.has("wizmage-video-frame-blocked"),
+    "Allowing an embedded GSTX video left its frame document concealed.",
+  );
+  const allowedGstxPauseCount = safariGstxPauseCount;
+  safariGstxListeners.get("play")({ target: safariGstxVideo });
+  assert.equal(
+    safariGstxPauseCount,
+    allowedGstxPauseCount,
+    "Safari kept pausing a GSTX video after Safe Block allowed it.",
+  );
+
   const delayedTimers = makeFakeTimers();
   const delayedClassNames = new Set();
   const delayedDocument = { documentElement: null };
@@ -290,6 +374,7 @@ function createWorkerHarness(shared, options = {}) {
       url: "chrome-extension://fixture/options.htm",
     },
     { id: 33, windowId: 2, active: true, lastAccessed: 100, url: "https://three.example/" },
+    { id: 55, windowId: 1, active: false, lastAccessed: 500, url: "https://www.gstx.org/" },
   ];
   const runtimeMessageEvent = makeEvent();
   const storageChangedEvent = makeEvent();
@@ -408,6 +493,13 @@ function createWorkerHarness(shared, options = {}) {
       onActivated: activatedEvent,
       onRemoved: removedEvent,
       onUpdated: updatedEvent,
+      get(tabId, callback) {
+        const result = clone(queriedTabs.find(tab => tab.id === tabId) || null);
+        if (callback) {
+          callback(result);
+        }
+        return Promise.resolve(result);
+      },
       query(query, callback) {
         const result = clone(queriedTabs.filter(tab =>
           !query || query.active == null || tab.active === query.active
@@ -1637,6 +1729,21 @@ async function testNavigationRefresh(harness) {
   );
   assert.equal(hintedSettings.excluded, true, "The popup URL hint did not fill missing Safari tab metadata.");
 
+  local.data.allowSafeDomains = ["gstx.org"];
+  const embeddedFrameSettings = await dispatchWorkerMessage(
+    harness,
+    { r: "getSettings" },
+    {
+      tab: { id: 55, url: "https://www.youtube.com/embed/fixture" },
+      url: "https://www.youtube.com/embed/fixture",
+    },
+  );
+  assert.equal(
+    embeddedFrameSettings.allowSafeDomain,
+    true,
+    "An embedded Safari frame did not inherit the top-level site's Safe Block exception.",
+  );
+
   const routeResponse = await dispatchWorkerMessage(
     harness,
     { r: "pageUrlChanged", url: "https://one.example/other" },
@@ -1716,7 +1823,7 @@ export async function runRuntimeVmTests() {
   await testSettingsWritesAndBroadcast(harness);
   await testNavigationRefresh(harness);
   await testInvalidUrlListMutation(harness);
-  return { sharedAssertions: 20, workerAssertions: 98, contentAssertions: 93 };
+  return { sharedAssertions: 20, workerAssertions: 99, contentAssertions: 101 };
 }
 
 const invokedPath = process.argv[1] ? resolve(process.argv[1]) : "";

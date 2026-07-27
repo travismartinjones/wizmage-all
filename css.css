@@ -203,6 +203,30 @@ html.wizmage-running [data-wzm-shadow-pending="1"] {
     object-fit: fill !important;
 }
 
+/* Safari keeps painting decoded video frames even when generated content
+   replaces a VIDEO. Move only the replaced video pixels out of its box so the
+   Wizmage pattern remains visible and the player keeps its layout footprint. */
+video[data-wzm-locked="1"] {
+    content: normal !important;
+    object-fit: none !important;
+    object-position: -100000px -100000px !important;
+    color: transparent !important;
+}
+
+/* In an embedded player, captions and controls are separate DOM above VIDEO.
+   Once that stream is blocked, conceal the whole frame document and paint the
+   Wizmage surface on its root so no decoded frame or overlay remains visible. */
+html.wizmage-video-frame-blocked {
+    background-color: transparent !important;
+    background-image: var(--wzm-pattern-light-0, url(pattern-light0.png)) !important;
+    background-repeat: repeat !important;
+    background-size: auto !important;
+}
+
+html.wizmage-video-frame-blocked body {
+    opacity: 0 !important;
+}
+
 /* WebKit 21624 can corrupt Amazon's transient text-control renderer after a
    replaced element's generated content changes. Keep the original resource and
    box metrics intact in Safari's guarded renderer; move only its painted object

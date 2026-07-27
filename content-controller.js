@@ -45,7 +45,9 @@
     // Text controls are not useful image surfaces, so never force their layout
     // merely to look for a CSS background.
     const SKIP_BACKGROUND_TAGS = /^(?:HEAD|META|LINK|STYLE|SCRIPT|NOSCRIPT|TEMPLATE|SOURCE|TRACK|BR|HR|TEXTAREA)$/;
-    const REPLACED_KINDS = new Set(['img', 'input-image', 'canvas', 'svg', 'object', 'embed', 'video-poster']);
+    const REPLACED_KINDS = new Set([
+        'img', 'input-image', 'canvas', 'svg', 'object', 'embed', 'video-poster', 'video-stream'
+    ]);
     const MAX_ACTIVE_SCAN_JOBS = 128;
     const MAINTENANCE_INTERVAL_MS = 1000;
     const MAX_LATE_SHADOW_HOSTS = 1024;
@@ -2144,7 +2146,7 @@
                     this.queueElement(image);
             }
             else if (tag === 'VIDEO')
-                this.inspectVideoPoster(element);
+                this.inspectVideo(element);
 
             if (!this.usesSafariLayoutSafeMode
                 && !SKIP_BACKGROUND_TAGS.test(tag) && !this.hasSeenTextareaLayoutHazard)
@@ -2427,6 +2429,40 @@
             return Shared.renderedSize(element);
         }
 
+        inspectVideo(element) {
+            this.inspectVideoStream(element);
+            this.inspectVideoPoster(element);
+        }
+
+        inspectVideoStream(element) {
+            const kind = 'video-stream';
+            if (!this.settings.alwaysBlock) {
+                this.clearRecordKind(element, kind);
+                return;
+            }
+            const key = Shared.candidateKey(kind, [], 'always-block');
+            const record = this.getRecord(element, kind, true);
+            if (record.key !== key) {
+                this.cancelRecordAnalyses(record);
+                record.key = key;
+                record.pendingKey = null;
+                record.pendingRevision = 0;
+                record.settledKey = null;
+                record.settledRevision = 0;
+                record.settledStatus = null;
+                record.retryAfter = 0;
+                if (record.userAllowedKey !== key)
+                    record.userAllowedKey = null;
+            }
+            record.safeKey = key;
+            record.safeRevision = this.settingsRevision;
+            if (record.userAllowedKey === key || this.settings.allowSafeDomain) {
+                this.showRecord(record, false, false);
+                return;
+            }
+            this.applyVisual(record, 'always');
+        }
+
         inspectVideoPoster(element) {
             const poster = this.resolveMediaUrl(element.poster || element.getAttribute('poster'));
             if (poster) {
@@ -2434,7 +2470,7 @@
                 return;
             }
             this.clearRecordKind(element, 'video-poster');
-            this.settleSafariVideo(element, false);
+            this.settleVideo(element, this.hasBlockedRecord(element));
         }
 
         inspectUrlElement(element, kind, rawUrl, extraKey) {
@@ -2932,7 +2968,7 @@
             if (!blocked.length) {
                 for (const attribute of VISUAL_ATTRIBUTES)
                     this.writeAttribute(element, attribute, null);
-                this.settleSafariVideo(element, false);
+                this.settleVideo(element, false);
                 return;
             }
             const priority = { bad: 4, checking: 3, unchecked: 2, always: 1 };
@@ -2984,12 +3020,11 @@
             this.writeAttribute(element, 'data-wzm-safari-locked',
                 blocksReplacedElement && this.usesSafariLayoutSafeMode ? '1' : null);
             this.writeAttribute(element, 'data-wzm-hide', blocked.some(record => record.kind === 'svg-image') ? '1' : null);
-            this.settleSafariVideo(element, blocksReplacedElement);
+            this.settleVideo(element, blocksReplacedElement);
         }
 
-        settleSafariVideo(element, blocked) {
-            if (!this.usesSafariLayoutSafeMode
-                || String(element && element.tagName || '').toUpperCase() !== 'VIDEO')
+        settleVideo(element, blocked) {
+            if (String(element && element.tagName || '').toUpperCase() !== 'VIDEO')
                 return;
             const gate = this.win && this.win.WizmageMediaGate;
             if (gate && typeof gate.settleVideo === 'function')

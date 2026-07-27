@@ -1511,7 +1511,10 @@
         revealedSafeImage.src = imageUrl('allow-safe-domain-revealed-safe.png');
         revealedSafeImage.style.width = '120px';
         revealedSafeImage.style.height = '120px';
-        document.body.append(safeImage, unsafeImage, safeBackground, revealedSafeImage);
+        const safeVideo = document.createElement('video');
+        safeVideo.style.width = '160px';
+        safeVideo.style.height = '100px';
+        document.body.append(safeImage, unsafeImage, safeBackground, revealedSafeImage, safeVideo);
 
         const settings = makeSettings('people');
         settings.alwaysBlock = true;
@@ -1535,8 +1538,17 @@
             () => safeImage.getAttribute('data-wzm-always') === '1' &&
                 unsafeImage.getAttribute('data-wzm-locked') === '1' &&
                 safeBackground.getAttribute('data-wzm-always') === '1' &&
-                revealedSafeImage.getAttribute('data-wzm-always') === '1',
-            'Always Block did not conceal both safe and unsafe fixtures'
+                revealedSafeImage.getAttribute('data-wzm-always') === '1' &&
+                safeVideo.getAttribute('data-wzm-always') === '1' &&
+                safeVideo.getAttribute('data-wzm-locked') === '1',
+            'Always Block did not conceal the safe, unsafe, and video fixtures'
+        );
+        const blockedVideoStyle = getComputedStyle(safeVideo);
+        assert(
+            blockedVideoStyle.content === 'normal' &&
+                blockedVideoStyle.objectFit === 'none' &&
+                blockedVideoStyle.objectPosition.indexOf('-100000px') !== -1,
+            'A Safe Blocked video did not move decoded video pixels out of its visible box'
         );
         await waitFor(
             () => !document.documentElement.classList.contains('wizmage-media-starting'),
@@ -1558,6 +1570,7 @@
                 !safeImage.hasAttribute('data-wzm-locked') &&
                 !safeBackground.hasAttribute('data-wzm-pattern-bg-img') &&
                 !revealedSafeImage.hasAttribute('data-wzm-locked') &&
+                !safeVideo.hasAttribute('data-wzm-locked') &&
                 unsafeImage.getAttribute('data-wzm-locked') === '1',
             'The cached-safe exception was not applied synchronously without a global gate'
         );
@@ -1567,6 +1580,7 @@
                 !safeImage.hasAttribute('data-wzm-media-pending') &&
                 !safeBackground.hasAttribute('data-wzm-pattern-bg-img') &&
                 !revealedSafeImage.hasAttribute('data-wzm-locked') &&
+                !safeVideo.hasAttribute('data-wzm-locked') &&
                 unsafeImage.getAttribute('data-wzm-locked') === '1',
             'Excluding the website from Safe Block did not immediately show only cached-safe media'
         );
@@ -1581,7 +1595,9 @@
             !document.documentElement.classList.contains('wizmage-media-starting') &&
                 safeImage.getAttribute('data-wzm-always') === '1' &&
                 safeBackground.getAttribute('data-wzm-always') === '1' &&
-                revealedSafeImage.getAttribute('data-wzm-always') === '1',
+                revealedSafeImage.getAttribute('data-wzm-always') === '1' &&
+                safeVideo.getAttribute('data-wzm-always') === '1' &&
+                safeVideo.getAttribute('data-wzm-locked') === '1',
             'Removing the cached-safe exception was not applied synchronously without a global gate'
         );
         await waitFor(
@@ -1590,6 +1606,8 @@
                 safeBackground.getAttribute('data-wzm-always') === '1' &&
                 revealedSafeImage.getAttribute('data-wzm-always') === '1' &&
                 revealedSafeImage.getAttribute('data-wzm-locked') === '1' &&
+                safeVideo.getAttribute('data-wzm-always') === '1' &&
+                safeVideo.getAttribute('data-wzm-locked') === '1' &&
                 unsafeImage.getAttribute('data-wzm-locked') === '1',
             'Removing the safe-domain exception did not immediately reblock cached-safe media'
         );
@@ -1601,6 +1619,7 @@
         unsafeImage.remove();
         safeBackground.remove();
         revealedSafeImage.remove();
+        safeVideo.remove();
         document.body.replaceChildren(resultNode);
     }
 

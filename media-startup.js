@@ -3,6 +3,7 @@
 
     const CLASS_NAME = 'wizmage-media-starting';
     const SAFARI_CLASS_NAME = 'wizmage-safari-media-starting';
+    const VIDEO_FRAME_BLOCKED_CLASS = 'wizmage-video-frame-blocked';
     const FAIL_OPEN_MS = 2000;
     const SAFARI_FAIL_OPEN_MS = 10000;
     const doc = root && root.document;
@@ -15,10 +16,15 @@
         || pageHost.endsWith('.amazon.com')
         || /^https?:\/\/(?:[^/?#]+\.)?amazon\.com(?::\d+)?(?:[/?#]|$)/i.test(referrer);
     const safariLayoutSafe = isSafari && isAmazonPage;
+    const guardVideosAtStartup = isSafari;
+    let isEmbeddedFrame = false;
+    try { isEmbeddedFrame = !!(root && root.top && root !== root.top); }
+    catch (error) { isEmbeddedFrame = true; }
     let failOpenTimer = null;
     let rootObserver = null;
     let videoObserver = null;
     const guardedVideos = new Set();
+    const blockedVideos = new Set();
     const settledVideos = new WeakSet();
     const userActivationExpires = new WeakMap();
 
@@ -28,11 +34,12 @@
 
     function isVideoBlocked(video) {
         return !!(video && video.getAttribute
-            && video.getAttribute('data-wzm-safari-locked') === '1');
+            && (video.getAttribute('data-wzm-locked') === '1'
+                || video.getAttribute('data-wzm-safari-locked') === '1'));
     }
 
     function pauseVideo(video) {
-        if (!safariLayoutSafe || !isVideo(video))
+        if (!guardVideosAtStartup || !isVideo(video))
             return;
         guardedVideos.add(video);
         try { video.pause(); } catch (error) { /* detached or protected media */ }
@@ -58,26 +65,43 @@
             guardVideo(video);
     }
 
+    function updateEmbeddedVideoPresentation() {
+        if (!isEmbeddedFrame)
+            return;
+        const element = doc && doc.documentElement;
+        if (!element)
+            return;
+        for (const video of Array.from(blockedVideos)) {
+            if (!video || !video.isConnected)
+                blockedVideos.delete(video);
+        }
+        element.classList.toggle(VIDEO_FRAME_BLOCKED_CLASS, blockedVideos.size > 0);
+    }
+
     function forgetVideoTree(node) {
         if (!node || node.nodeType !== 1)
             return;
-        if (isVideo(node))
+        if (isVideo(node)) {
             guardedVideos.delete(node);
+            blockedVideos.delete(node);
+        }
         if (!node.querySelectorAll)
             return;
         let videos;
         try { videos = node.querySelectorAll('video'); } catch (error) { return; }
-        for (const video of videos)
+        for (const video of videos) {
             guardedVideos.delete(video);
+            blockedVideos.delete(video);
+        }
+        updateEmbeddedVideoPresentation();
     }
 
     function releaseVideoIfAllowed(video) {
         if (!video || isVideoBlocked(video))
             return false;
         guardedVideos.delete(video);
-        // Do not synthesize playback after filtering. Amazon retries autoplay
-        // independently; the capture guard below permits playback only after a
-        // direct user gesture on the video.
+        // Do not synthesize playback after filtering. The page may retry its own
+        // autoplay after the startup gate releases, or the user may press play.
         return true;
     }
 
@@ -93,21 +117,27 @@
     }
 
     function settleVideo(video, blocked) {
-        if (!safariLayoutSafe || !isVideo(video))
+        if (!guardVideosAtStartup || !isVideo(video))
             return;
         settledVideos.add(video);
+        if (blocked)
+            blockedVideos.add(video);
+        else
+            blockedVideos.delete(video);
+        updateEmbeddedVideoPresentation();
         if (blocked) {
             pauseVideo(video);
             return;
         }
         const element = doc && doc.documentElement;
-        const gateActive = !!(element && element.classList.contains(SAFARI_CLASS_NAME));
+        const gateClass = safariLayoutSafe ? SAFARI_CLASS_NAME : CLASS_NAME;
+        const gateActive = !!(element && element.classList.contains(gateClass));
         if (!gateActive)
             releaseVideoIfAllowed(video);
     }
 
     function startVideoGuard() {
-        if (!safariLayoutSafe || !doc)
+        if (!guardVideosAtStartup || !doc)
             return;
         try {
             const authorizeVideoFromEvent = function (event) {
@@ -128,7 +158,8 @@
                     return;
                 const userActivated = (userActivationExpires.get(video) || 0) >= Date.now();
                 userActivationExpires.delete(video);
-                if (!userActivated || !settledVideos.has(video) || isVideoBlocked(video))
+                if (isVideoBlocked(video) || !settledVideos.has(video)
+                    || (guardedVideos.has(video) && !userActivated))
                     pauseVideo(video);
             }, true);
         } catch (error) { /* inaccessible document */ }
@@ -211,7 +242,7 @@
             rootObserver = null;
         }
         setActive(false);
-        if (safariLayoutSafe)
+        if (guardVideosAtStartup)
             resumeAllowedVideos();
     }
 

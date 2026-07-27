@@ -287,6 +287,36 @@ function sendTabMessage(tabId, message) {
     });
 }
 
+function getTabById(tabId) {
+    if (!wzmChrome || !wzmChrome.tabs || !wzmChrome.tabs.get || typeof tabId !== 'number')
+        return Promise.resolve(null);
+    return new Promise(resolve => {
+        let settled = false;
+        const finish = tab => {
+            if (settled) return;
+            settled = true;
+            // Reading lastError prevents expected closed-tab errors from leaking.
+            void (wzmChrome.runtime && wzmChrome.runtime.lastError);
+            resolve(tab && typeof tab === 'object' ? tab : null);
+        };
+        try {
+            const maybePromise = wzmChrome.tabs.get(tabId, finish);
+            if (maybePromise && typeof maybePromise.then === 'function')
+                maybePromise.then(finish).catch(() => finish(null));
+        } catch (err) {
+            try {
+                const maybePromise = wzmChrome.tabs.get(tabId);
+                if (maybePromise && typeof maybePromise.then === 'function')
+                    maybePromise.then(finish).catch(() => finish(null));
+                else
+                    finish(null);
+            } catch (retryError) {
+                finish(null);
+            }
+        }
+    });
+}
+
 async function refreshTabForNavigation(tabId, pageUrl) {
     if (typeof tabId !== 'number')
         return false;
@@ -482,6 +512,14 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
                     effectiveTab = Object.assign({}, effectiveTab, {
                         url: request.pageUrl.slice(0, MAX_PAGE_URL_CHARS)
                     });
+                }
+                else if (!request.tab && sender && sender.tab && typeof sender.tab.id === 'number') {
+                    // Safari can report the sender frame URL in sender.tab.url
+                    // for an embedded player. Resolve the actual top-level tab
+                    // so site exceptions consistently apply to every frame.
+                    const topLevelTab = await getTabById(sender.tab.id);
+                    if (topLevelTab && topLevelTab.url)
+                        effectiveTab = Object.assign({}, effectiveTab, { url: topLevelTab.url });
                 }
                 let effective = await getEffectiveSettings(effectiveTab);
                 sendResponse(effective);
