@@ -478,7 +478,7 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
             }
             case 'getSettings': {
                 let effectiveTab = request.tab || (sender && sender.tab);
-                if (!request.tab && effectiveTab && typeof request.pageUrl === 'string' && request.pageUrl) {
+                if (effectiveTab && typeof request.pageUrl === 'string' && request.pageUrl) {
                     effectiveTab = Object.assign({}, effectiveTab, {
                         url: request.pageUrl.slice(0, MAX_PAGE_URL_CHARS)
                     });

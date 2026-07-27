@@ -1196,6 +1196,14 @@ function testContentBackpressureAndManualRefresh(shared) {
   const activeMessages = harness.analysisMessages.slice(activeBeforeShow);
   const listener = harness.runtimeListeners[0];
   assert(listener, "The content script did not install its runtime listener.");
+  let pageContextResponse = null;
+  listener({ r: "getPageContext" }, {}, response => { pageContextResponse = response; });
+  assert(
+    pageContextResponse
+      && pageContextResponse.ok === true
+      && pageContextResponse.url === "https://one.example/start",
+    "The popup could not recover the page URL from the top-frame content script.",
+  );
   listener({ r: "showImages" }, {}, () => {});
   assert(
     !harness.classNames.has("wizmage-media-starting") && harness.classNames.has("wizmage-show-html"),
@@ -1319,6 +1327,122 @@ function testContentBackpressureAndManualRefresh(shared) {
   );
   failureHarness.runtimeListeners[0]({ r: "showImages" }, {}, () => {});
   assert.equal(failureResults.length, 300, "Canceling after a messaging failure did not release the backlog.");
+}
+
+function testPopupRecoversSafariTabUrl(shared) {
+  const elements = new Map();
+  const element = id => {
+    if (!elements.has(id)) {
+      elements.set(id, {
+        id,
+        checked: false,
+        disabled: false,
+        innerText: "",
+        style: {},
+      });
+    }
+    return elements.get(id);
+  };
+  for (const id of [
+    "excludeAlwaysBlock",
+    "exclude-always-block-w",
+    "excludeDomain",
+    "excludeForTab",
+    "exclude-tab-wrap",
+    "pauseChk",
+    "pauseTab",
+    "showImages",
+    "when-running",
+    "err-msg",
+    "still-seeing-images",
+    "advice",
+    "close",
+  ]) {
+    element(id);
+  }
+
+  const runtimeMessages = [];
+  const tabMessages = [];
+  const timers = makeFakeTimers();
+  const storageWrites = [];
+  const storageLocal = makeStorageArea({
+    settings: clone(shared.DEFAULT_SETTINGS),
+    urlList: [],
+    allowSafeDomains: [],
+  }, storageWrites);
+  const storageSession = makeStorageArea({
+    pauseForTabs: [],
+    excludeForTabs: [],
+  }, storageWrites);
+  const settings = Object.assign({}, clone(shared.DEFAULT_SETTINGS), {
+    alwaysBlock: true,
+    allowSafeDomain: false,
+  });
+  const context = vm.createContext({
+    URL,
+    WizmageShared: shared,
+    close() {},
+    document: {
+      getElementById(id) { return element(id); },
+      querySelectorAll() { return []; },
+    },
+    setTimeout: timers.setTimeout,
+    clearTimeout: timers.clearTimeout,
+    chrome: {
+      runtime: {
+        sendMessage(message, callback) {
+          runtimeMessages.push(clone(message));
+          callback(message.r === "getSettings" ? clone(settings) : { ok: true });
+        },
+      },
+      storage: {
+        local: storageLocal,
+        session: storageSession,
+      },
+      tabs: {
+        query(queryInfo, callback) {
+          callback([{ id: 17, active: true }]);
+        },
+        sendMessage(tabId, message, callback) {
+          tabMessages.push({ tabId, message: clone(message) });
+          if (message.r === "getPageContext") {
+            callback({ ok: true, url: "https://www.gstx.org/meet-our-team" });
+            return;
+          }
+          callback({ ok: true });
+        },
+        reload() {},
+      },
+    },
+  });
+  vm.runInContext(readFileSync(join(ROOT_DIR, "popup.js"), "utf8"), context, {
+    filename: "popup.js",
+  });
+
+  assert.equal(element("excludeDomain").disabled, false);
+  assert.equal(element("excludeForTab").disabled, false);
+  assert.equal(element("excludeAlwaysBlock").disabled, false);
+  assert.equal(
+    runtimeMessages.find(message => message.r === "getSettings")?.tab?.url,
+    "https://www.gstx.org/meet-our-team",
+    "The popup did not use the recovered Safari page URL for its effective settings.",
+  );
+
+  element("excludeAlwaysBlock").checked = true;
+  element("excludeAlwaysBlock").onclick();
+  assert.deepEqual(
+    runtimeMessages.find(message => message.r === "allowSafeForDomain"),
+    {
+      r: "allowSafeForDomain",
+      url: "https://www.gstx.org/meet-our-team",
+      toggle: true,
+    },
+    "Safe Block did not persist the recovered Safari domain.",
+  );
+  assert(
+    tabMessages.some(entry => entry.message.r === "refreshSettings"),
+    "Safe Block did not refresh the active Safari tab.",
+  );
 }
 
 async function dispatchWorkerMessage(harness, request, sender) {
@@ -1504,10 +1628,14 @@ async function testNavigationRefresh(harness) {
   local.data.urlList = ["one.example/listed"];
   const hintedSettings = await dispatchWorkerMessage(
     harness,
-    { r: "getSettings", pageUrl: "https://one.example/listed/photo" },
-    { tab: { id: 11, url: "https://one.example/unlisted" } },
+    {
+      r: "getSettings",
+      tab: { id: 11 },
+      pageUrl: "https://one.example/listed/photo",
+    },
+    { url: "chrome-extension://fixture/popup.htm" },
   );
-  assert.equal(hintedSettings.excluded, true, "The navigation URL hint was ignored while tab metadata lagged.");
+  assert.equal(hintedSettings.excluded, true, "The popup URL hint did not fill missing Safari tab metadata.");
 
   const routeResponse = await dispatchWorkerMessage(
     harness,
@@ -1584,10 +1712,11 @@ export async function runRuntimeVmTests() {
   testAnalyzeBounds(harness);
   testAnalyzeDedupTimeoutAndCache(harness);
   testContentBackpressureAndManualRefresh(shared);
+  testPopupRecoversSafariTabUrl(shared);
   await testSettingsWritesAndBroadcast(harness);
   await testNavigationRefresh(harness);
   await testInvalidUrlListMutation(harness);
-  return { sharedAssertions: 20, workerAssertions: 98, contentAssertions: 86 };
+  return { sharedAssertions: 20, workerAssertions: 98, contentAssertions: 93 };
 }
 
 const invokedPath = process.argv[1] ? resolve(process.argv[1]) : "";

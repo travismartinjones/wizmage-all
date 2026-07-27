@@ -320,11 +320,20 @@ function wzmTabsQuery(queryInfo, callback) {
         return;
     }
     if (wzmUsePromiseApi) {
-        var p = wzmTabs.query(queryInfo);
-        if (callback) p.then(callback).catch(function () { callback([]); });
-        return p;
+        try {
+            var p = wzmTabs.query(queryInfo);
+            if (callback) p.then(callback).catch(function () { callback([]); });
+            return p;
+        } catch (err) {
+            if (callback) callback([]);
+            return;
+        }
     }
-    return wzmTabs.query(queryInfo, callback);
+    try {
+        return wzmTabs.query(queryInfo, callback);
+    } catch (err) {
+        if (callback) callback([]);
+    }
 }
 function wzmTabsSendMessage(tabId, message, callback) {
     if (!wzmTabs || !wzmTabs.sendMessage) {
@@ -332,11 +341,66 @@ function wzmTabsSendMessage(tabId, message, callback) {
         return;
     }
     if (wzmUsePromiseApi) {
-        var p = wzmTabs.sendMessage(tabId, message);
-        if (callback) p.then(callback).catch(function () { callback(); });
-        return p;
+        try {
+            var p = wzmTabs.sendMessage(tabId, message);
+            if (callback) p.then(callback).catch(function () { callback(); });
+            return p;
+        } catch (err) {
+            if (callback) callback();
+            return;
+        }
     }
-    return wzmTabs.sendMessage(tabId, message, callback);
+    try {
+        return wzmTabs.sendMessage(tabId, message, callback);
+    } catch (err) {
+        if (callback) callback();
+    }
+}
+function wzmSelectActiveTab(tabs) {
+    tabs = Array.isArray(tabs) ? tabs : [];
+    return tabs.find(tab => tab && tab.active && tab.id != null)
+        || tabs.find(tab => tab && tab.id != null)
+        || null;
+}
+function wzmResolveTabPageUrl(tab, callback) {
+    if (!tab || tab.id == null || wzmGetDomain(tab.url)) {
+        callback(tab);
+        return;
+    }
+    let finished = false;
+    let finish = function (response) {
+        if (finished)
+            return;
+        finished = true;
+        if (response && response.ok === true && wzmGetDomain(response.url))
+            tab = Object.assign({}, tab, { url: response.url });
+        callback(tab);
+    };
+    wzmTabsSendMessage(tab.id, { r: 'getPageContext' }, finish);
+    setTimeout(function () { finish(); }, 500);
+}
+function wzmGetActiveTab(callback) {
+    let queries = [
+        { active: true, currentWindow: true },
+        { active: true, lastFocusedWindow: true },
+        { active: true }
+    ];
+    let queryIndex = 0;
+    let next = function () {
+        if (queryIndex >= queries.length) {
+            callback(null);
+            return;
+        }
+        wzmTabsQuery(queries[queryIndex++], function (tabs) {
+            let tab = wzmSelectActiveTab(tabs);
+            if (!tab) {
+                next();
+                return;
+            }
+            wzmResolveTabPageUrl(tab, callback);
+        });
+    };
+    next();
 }
 function wzmTabsReload(tabId) {
     if (!wzmTabs || !wzmTabs.reload)
@@ -350,8 +414,8 @@ function wzmTabsReload(tabId) {
         // ignore
     }
 }
-wzmTabsQuery({ active: true, currentWindow: true }, function (tabs) {
-    var activeTab = tabs[0], closeOnClick, currentSettings;
+wzmGetActiveTab(function (activeTab) {
+    var closeOnClick, currentSettings;
     var settingsWriteQueue = [], settingsWriteInProgress = false;
     var excludeAlwaysBlock = document.getElementById('excludeAlwaysBlock');
     var excludeAlwaysBlockW = document.getElementById('exclude-always-block-w');

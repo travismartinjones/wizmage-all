@@ -731,6 +731,16 @@
         if (!request || typeof request.r !== 'string')
             return;
         switch (request.r) {
+            case 'getPageContext':
+                if (window !== top)
+                    return;
+                if (sendResponse) {
+                    sendResponse({
+                        ok: true,
+                        url: String(location.href || '').slice(0, MAX_PAGE_URL_CHARS)
+                    });
+                }
+                return;
             case 'showImages':
                 showAllImages();
                 if (sendResponse) sendResponse({ ok: true });
