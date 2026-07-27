@@ -37,7 +37,11 @@
         'data-wzm-suppress-after-border', 'data-wzm-suppress-after-list', 'data-wzm-suppress-after-content'
     ];
     const VISUAL_ATTRIBUTE_SET = new Set(VISUAL_ATTRIBUTES);
-    const SKIP_BACKGROUND_TAGS = /^(?:HEAD|META|LINK|STYLE|SCRIPT|NOSCRIPT|TEMPLATE|SOURCE|TRACK|BR|HR)$/;
+    // WebKit 21624 can crash while resolving computed style for a transient
+    // <textarea> (HTMLTextAreaElement::innerTextElement) on mutation-heavy pages.
+    // Text controls are not useful image surfaces, so never force their layout
+    // merely to look for a CSS background.
+    const SKIP_BACKGROUND_TAGS = /^(?:HEAD|META|LINK|STYLE|SCRIPT|NOSCRIPT|TEMPLATE|SOURCE|TRACK|BR|HR|TEXTAREA)$/;
     const REPLACED_KINDS = new Set(['img', 'input-image', 'canvas', 'svg', 'object', 'embed', 'video-poster']);
     const MAX_ACTIVE_SCAN_JOBS = 128;
     const MAINTENANCE_INTERVAL_MS = 1000;
@@ -75,6 +79,11 @@
             this.doc = win.document;
             this.settings = Shared.normalizeSettings(settings);
             this.environment = environment || {};
+            const userAgent = String(win.navigator && win.navigator.userAgent || '');
+            this.usesSafariTextControlLayoutGuard = /\bSafari\//.test(userAgent)
+                && !/\b(?:Chrome|Chromium|CriOS|Edg|EdgiOS|OPR|FxiOS)\//.test(userAgent);
+            this.hasSeenTextareaLayoutHazard = false;
+            this.noteTextareaLayoutHazard(this.doc);
             this.extensionUrl = this.environment.getURL ? this.environment.getURL('') : '';
             this.active = false;
             this.started = false;
@@ -189,6 +198,7 @@
             if (!this.active || this.started || !this.doc.documentElement)
                 return;
             this.started = true;
+            this.noteTextareaLayoutHazard(this.doc);
             this.doc.documentElement.classList.add('wizmage-running');
             this.applyPatternVariables(this.doc);
             this.createEye();
@@ -1531,6 +1541,7 @@
                 for (const node of mutation.addedNodes || []) {
                     if (node.nodeType !== 1)
                         continue;
+                    this.noteTextareaLayoutHazard(node);
                     if (this.shadowStyleLinks.has(node)) {
                         if (this.isShadowRootLike(mutation.target)) {
                             this.shadowStyleRootByLink.set(node, mutation.target);
@@ -2106,8 +2117,21 @@
             else if (tag === 'VIDEO')
                 this.inspectVideoPoster(element);
 
-            if (!SKIP_BACKGROUND_TAGS.test(tag))
+            if (!SKIP_BACKGROUND_TAGS.test(tag) && !this.hasSeenTextareaLayoutHazard)
                 this.inspectBackground(element);
+        }
+
+        noteTextareaLayoutHazard(root) {
+            if (!this.usesSafariTextControlLayoutGuard || this.hasSeenTextareaLayoutHazard || !root)
+                return;
+            if (String(root.tagName || '').toUpperCase() === 'TEXTAREA') {
+                this.hasSeenTextareaLayoutHazard = true;
+                return;
+            }
+            try {
+                if (root.querySelector && root.querySelector('textarea'))
+                    this.hasSeenTextareaLayoutHazard = true;
+            } catch (err) { /* inaccessible roots are handled by later mutations */ }
         }
 
         discoverShadowRoot(element) {
@@ -2361,6 +2385,17 @@
             this.inspectUrlElement(element, 'img', url);
         }
 
+        renderedSize(element) {
+            // Safari can crash inside RenderTextControl when any JavaScript
+            // geometry read forces layout after a page has created a textarea.
+            // An unknown size is deliberately conservative: sizeNeedsBlocking
+            // treats it as a candidate, so direct media remains filtered without
+            // asking WebKit to lay out the document.
+            if (this.usesSafariTextControlLayoutGuard && this.hasSeenTextareaLayoutHazard)
+                return { width: 0, height: 0 };
+            return Shared.renderedSize(element);
+        }
+
         inspectVideoPoster(element) {
             const poster = this.resolveMediaUrl(element.poster || element.getAttribute('poster'));
             if (poster) {
@@ -2379,7 +2414,7 @@
                     this.showRecord(record, false, false);
                 return;
             }
-            const size = Shared.renderedSize(element);
+            const size = this.renderedSize(element);
             const force = this.settings.alwaysBlock || this.isLikelyProfileImage(element, url);
             if (!Shared.sizeNeedsBlocking(size.width, size.height, this.settings.maxSafe, force)) {
                 if (record)
@@ -2392,7 +2427,7 @@
 
         inspectCanvas(element) {
             const record = this.getRecord(element, 'canvas', false);
-            const size = Shared.renderedSize(element);
+            const size = this.renderedSize(element);
             if (!Shared.sizeNeedsBlocking(size.width, size.height, this.settings.maxSafe, this.settings.alwaysBlock)) {
                 if (record)
                     this.showRecord(record, false, false);
@@ -2419,7 +2454,7 @@
 
         inspectSvgRoot(element) {
             const record = this.getRecord(element, 'svg', false);
-            const size = Shared.renderedSize(element);
+            const size = this.renderedSize(element);
             if (!Shared.sizeNeedsBlocking(size.width, size.height, this.settings.maxSafe, this.settings.alwaysBlock)) {
                 if (record)
                     this.showRecord(record, false, false);
@@ -2562,7 +2597,7 @@
                 return;
 
             const media = this.readStyleMedia(element);
-            const hostSize = Shared.renderedSize(element);
+            const hostSize = this.renderedSize(element);
             const size = {
                 width: Math.max(hostSize.width, media.width || 0),
                 height: Math.max(hostSize.height, media.height || 0)
@@ -3160,8 +3195,11 @@
 
         onMouseOver(event) {
             this.queueHoverTree(event);
-            if (!this.active || this.settings.noEye || !this.eye)
+            if (!this.active || this.settings.noEye || !this.eye
+                || (this.usesSafariTextControlLayoutGuard && this.hasSeenTextareaLayoutHazard)) {
+                this.hideEye();
                 return;
+            }
             const path = event.composedPath ? event.composedPath() : [event.target];
             let record = null;
             for (const element of path) {

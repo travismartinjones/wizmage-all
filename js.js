@@ -41,6 +41,7 @@
     const extensionDom = (chromeApi && chromeApi.dom) || (browserApi && browserApi.dom) || null;
     const storageLocal = storage && storage.local ? storage.local : null;
     const usePromiseApi = !!browserApi && (!chromeApi || chromeApi === browserApi);
+    const safariCompatibilityBypass = !!globalThis.WizmageSafariCompatibilityBypass;
     const ANALYSIS_TIMEOUT_MS = 21000;
     const SETTINGS_FAIL_OPEN_MS = 5000;
     const MAX_ANALYSIS_URL_CHARS = 512 * 1024;
@@ -114,6 +115,18 @@
             finish(undefined);
             return null;
         }
+    }
+
+    // WebKit 21624 can corrupt its textarea renderer when amazon.com is
+    // restyled from a Safari content script, then crash later on its own layout
+    // timer. Fail open on that one browser/site combination before installing
+    // observers or changing page layout. The popup and background worker remain
+    // available, and every other site keeps normal filtering.
+    if (safariCompatibilityBypass) {
+        releaseMediaGate();
+        if (window === top)
+            sendMessage({ r: 'setColorIcon', toggle: false });
+        return;
     }
 
     function addRuntimeListener(listener) {

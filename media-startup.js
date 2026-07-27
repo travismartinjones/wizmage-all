@@ -4,6 +4,15 @@
     const CLASS_NAME = 'wizmage-media-starting';
     const FAIL_OPEN_MS = 2000;
     const doc = root && root.document;
+    const userAgent = String(root && root.navigator && root.navigator.userAgent || '');
+    const pageHost = String(root && root.location && root.location.hostname || '').toLowerCase();
+    const referrer = String(doc && doc.referrer || '');
+    const isSafari = /\bSafari\//.test(userAgent)
+        && !/\b(?:Chrome|Chromium|CriOS|Edg|EdgiOS|OPR|FxiOS)\//.test(userAgent);
+    const isAmazonPage = pageHost === 'amazon.com'
+        || pageHost.endsWith('.amazon.com')
+        || /^https?:\/\/(?:[^/?#]+\.)?amazon\.com(?::\d+)?(?:[/?#]|$)/i.test(referrer);
+    const compatibilityBypass = isSafari && isAmazonPage;
     let failOpenTimer = null;
     let rootObserver = null;
 
@@ -47,11 +56,19 @@
     }
 
     function activate() {
+        if (compatibilityBypass) {
+            release();
+            return;
+        }
         ensureRootActivation();
         scheduleFailOpen();
     }
 
     function claim() {
+        if (compatibilityBypass) {
+            release();
+            return;
+        }
         ensureRootActivation();
         cancelFailOpen();
     }
@@ -72,6 +89,9 @@
         isActive: function () {
             const element = doc && doc.documentElement;
             return !!(element && element.classList.contains(CLASS_NAME));
+        },
+        isCompatibilityBypassed: function () {
+            return compatibilityBypass;
         }
     });
 
@@ -86,5 +106,19 @@
         root.WizmageMediaGate = gate;
     }
 
-    activate();
+    try {
+        Object.defineProperty(root, 'WizmageSafariCompatibilityBypass', {
+            configurable: false,
+            enumerable: false,
+            writable: false,
+            value: compatibilityBypass
+        });
+    } catch (error) {
+        root.WizmageSafariCompatibilityBypass = compatibilityBypass;
+    }
+
+    if (compatibilityBypass)
+        release();
+    else
+        activate();
 })(globalThis);

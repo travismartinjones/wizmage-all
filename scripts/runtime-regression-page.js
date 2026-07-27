@@ -298,6 +298,56 @@
         hotAttributeRoot.remove();
         mark('unused high-frequency attributes do not rescan large subtrees');
 
+        const crashGuardTextarea = document.createElement('textarea');
+        crashGuardTextarea.style.backgroundImage = 'url("' + imageUrl('textarea-crash-guard.png') + '")';
+        const crashGuardSibling = document.createElement('div');
+        crashGuardSibling.style.backgroundImage = 'url("' + imageUrl('textarea-layout-sibling.png') + '")';
+        const originalGetComputedStyle = window.getComputedStyle;
+        const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect;
+        let textareaComputedStyleReads = 0;
+        let siblingComputedStyleReads = 0;
+        let imageGeometryReads = 0;
+        window.getComputedStyle = function (element, pseudo) {
+            if (element === crashGuardTextarea)
+                textareaComputedStyleReads++;
+            if (element === crashGuardSibling)
+                siblingComputedStyleReads++;
+            return originalGetComputedStyle.call(window, element, pseudo);
+        };
+        Element.prototype.getBoundingClientRect = function () {
+            if (this === singleImage)
+                imageGeometryReads++;
+            return originalGetBoundingClientRect.call(this);
+        };
+        controller.usesSafariTextControlLayoutGuard = true;
+        controller.hasSeenTextareaLayoutHazard = false;
+        document.body.append(crashGuardTextarea, crashGuardSibling);
+        controller.queueElement(crashGuardTextarea);
+        controller.queueElement(crashGuardSibling);
+        controller.queueElement(singleImage);
+        await waitFor(
+            () => !controller.pendingElements.has(crashGuardTextarea)
+                && !controller.pendingElements.has(crashGuardSibling)
+                && !controller.pendingElements.has(singleImage),
+            'The textarea crash-guard fixtures were not inspected'
+        );
+        window.getComputedStyle = originalGetComputedStyle;
+        Element.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+        assert(
+            controller.hasSeenTextareaLayoutHazard
+                && textareaComputedStyleReads === 0
+                && siblingComputedStyleReads === 0
+                && imageGeometryReads === 0
+                && hasNoVisualAttributes(crashGuardTextarea)
+                && hasNoVisualAttributes(crashGuardSibling),
+            'Filtering forced a style or geometry layout scan after observing a Safari textarea'
+        );
+        controller.usesSafariTextControlLayoutGuard = false;
+        controller.hasSeenTextareaLayoutHazard = false;
+        crashGuardTextarea.remove();
+        crashGuardSibling.remove();
+        mark('Safari text controls suppress style and geometry layout scans');
+
         let buttonTargetClicks = 0;
         let buttonBubbleClicks = 0;
         const bubbleListener = event => {

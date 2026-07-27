@@ -136,6 +136,44 @@ function testMediaStartupGate() {
   context.WizmageMediaGate.release();
   assert(!classNames.has("wizmage-media-starting"), "An explicit release left the media gate active.");
 
+  const safariAmazonTimers = makeFakeTimers();
+  const safariAmazonClasses = new Set();
+  const safariAmazonContext = vm.createContext({
+    document: {
+      documentElement: {
+        classList: {
+          contains(value) { return safariAmazonClasses.has(value); },
+          toggle(value, active) {
+            if (active) safariAmazonClasses.add(value);
+            else safariAmazonClasses.delete(value);
+          },
+        },
+      },
+      referrer: "",
+    },
+    location: { hostname: "www.amazon.com" },
+    navigator: {
+      userAgent: "Mozilla/5.0 (Macintosh) Version/26.2 Safari/619.1.26",
+    },
+    setTimeout: safariAmazonTimers.setTimeout,
+    clearTimeout: safariAmazonTimers.clearTimeout,
+  });
+  vm.runInContext(source, safariAmazonContext, { filename: "media-startup-safari-amazon.js" });
+  assert.equal(
+    safariAmazonContext.WizmageSafariCompatibilityBypass,
+    true,
+    "Safari on amazon.com did not enter compatibility mode.",
+  );
+  assert(
+    !safariAmazonClasses.has("wizmage-media-starting") && safariAmazonTimers.timers.size === 0,
+    "Safari compatibility mode activated or retained the startup layout gate.",
+  );
+  safariAmazonContext.WizmageMediaGate.claim();
+  assert(
+    !safariAmazonClasses.has("wizmage-media-starting"),
+    "A controller claim reactivated the Safari compatibility gate.",
+  );
+
   const delayedTimers = makeFakeTimers();
   const delayedClassNames = new Set();
   const delayedDocument = { documentElement: null };
@@ -505,6 +543,7 @@ function createContentHarness(shared, options = {}) {
       claim() { classNames.add("wizmage-media-starting"); },
       release() { classNames.delete("wizmage-media-starting"); },
     },
+    WizmageSafariCompatibilityBypass: !!options.safariCompatibilityBypass,
     chrome: {
       runtime: {
         lastError: null,
@@ -808,6 +847,18 @@ async function testAuthenticatedSlackImagePreparation(harness) {
 }
 
 function testContentBackpressureAndManualRefresh(shared) {
+  const safariCompatibilityHarness = createContentHarness(shared, {
+    safariCompatibilityBypass: true,
+  });
+  assert(
+    safariCompatibilityHarness.controllers.length === 0 &&
+      safariCompatibilityHarness.settingsMessages.length === 0 &&
+      safariCompatibilityHarness.runtimeListeners.length === 0 &&
+      !safariCompatibilityHarness.classNames.has("wizmage-media-starting") &&
+      safariCompatibilityHarness.classNames.has("wizmage-show-html"),
+    "Safari compatibility mode touched page layout or started filtering.",
+  );
+
   const delayedHarness = createContentHarness(shared, { holdSettings: true });
   assert(
     delayedHarness.classNames.has("wizmage-media-starting") &&
