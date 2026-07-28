@@ -8,14 +8,11 @@
     const SAFARI_FAIL_OPEN_MS = 10000;
     const doc = root && root.document;
     const userAgent = String(root && root.navigator && root.navigator.userAgent || '');
-    const pageHost = String(root && root.location && root.location.hostname || '').toLowerCase();
-    const referrer = String(doc && doc.referrer || '');
     const isSafari = /\bSafari\//.test(userAgent)
-        && !/\b(?:Chrome|Chromium|CriOS|Edg|EdgiOS|OPR|FxiOS)\//.test(userAgent);
-    const isAmazonPage = pageHost === 'amazon.com'
-        || pageHost.endsWith('.amazon.com')
-        || /^https?:\/\/(?:[^/?#]+\.)?amazon\.com(?::\d+)?(?:[/?#]|$)/i.test(referrer);
-    const safariLayoutSafe = isSafari && isAmazonPage;
+        && !/\b(?:HeadlessChrome|Chrome|Chromium|CriOS|Edg|EdgiOS|OPR|FxiOS)\//.test(userAgent);
+    // WebKit compatibility is browser-wide, never page-specific. Any Safari
+    // page can create the same renderer state.
+    const safariLayoutSafe = isSafari;
     const guardVideosAtStartup = isSafari;
     let isEmbeddedFrame = false;
     try { isEmbeddedFrame = !!(root && root.top && root !== root.top); }

@@ -177,6 +177,27 @@ function checkCanonicalTextEntries(expectedEntries) {
   }
 }
 
+function checkSiteAgnosticCompatibilityPolicy(expectedEntries) {
+  const startupSourceEntry = expectedEntries.get("media-startup.js");
+  assert(startupSourceEntry, "Missing compatibility runtime source: media-startup.js");
+  const startupSource = startupSourceEntry.toString("utf8");
+  const domainLiteral = /\b(?:[a-z\d-]+\.)+(?:app|ai|co|com|dev|edu|gov|io|net|org)\b/i;
+
+  assert(
+    !domainLiteral.test(startupSource),
+    "Safari startup policy contains a site-specific domain. Compatibility must be browser- or capability-scoped.",
+  );
+  assert.match(
+    startupSource,
+    /\bconst safariLayoutSafe = isSafari;/,
+    "Safari layout safety must apply browser-wide.",
+  );
+  assert(
+    !/\b(?:hostname|referrer)\b/.test(startupSource),
+    "Safari compatibility policy must not inspect a page hostname or referrer.",
+  );
+}
+
 function checkOutputRootSafety() {
   const rootAlias = process.platform === "win32" ? ROOT_DIR.toLowerCase() : ROOT_DIR;
   assert.throws(
@@ -355,6 +376,7 @@ function runStaticChecks() {
   const { entries, manifest } = createExpectedEntries(ROOT_DIR, config);
   checkCanonicalTextEntries(entries);
   checkResourceReferences(config, entries, manifest);
+  checkSiteAgnosticCompatibilityPolicy(entries);
   checkSafariExtensionResources(manifest, entries);
   checkOutputRootSafety();
   const syntaxFileCount = checkJavaScriptSyntax(config);

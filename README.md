@@ -68,6 +68,8 @@ To load the development build in Edge, open `edge://extensions`, enable **Develo
 - `service_worker.js` owns extension settings, classification requests, and browser APIs.
 - `popup.*` and `options.*` provide the extension controls.
 
+Compatibility behavior is browser- or capability-scoped, never hostname-scoped. Safari always uses the layout-safe controller path because the same WebKit renderer state can be created by any page. The static checks require that direct browser-wide policy and reject domain literals or hostname/referrer gating in the Safari startup policy.
+
 For site safety, an extensionless cross-origin `<object>` or `<embed>` with no declared MIME type is left untouched when the browser does not expose its response type. In that case an image response is indistinguishable from an embedded HTML/PDF application without broader host permissions; known image MIME types/extensions and same-origin extensionless image responses are still filtered.
 
 When adding a shipped resource, add it to `packageFiles` in `scripts/edge-package-files.json`. When adding a repository-level tooling file or directory, also declare its top-level name in `allowedRepositoryEntries`. CI runs the same checks and real-browser suite on Windows, macOS, and Linux, then requires all three generated ZIP files to be byte-for-byte identical.

@@ -119,11 +119,19 @@ function testMediaStartupGate() {
         },
       },
     },
+    navigator: {
+      userAgent: "Mozilla/5.0 HeadlessChrome/140.0.0.0 Safari/537.36",
+    },
     setTimeout: timers.setTimeout,
     clearTimeout: timers.clearTimeout,
   });
   const source = readFileSync(join(ROOT_DIR, "media-startup.js"), "utf8");
   vm.runInContext(source, context, { filename: "media-startup.js" });
+  assert.equal(
+    context.WizmageSafariLayoutSafe,
+    false,
+    "Headless Chromium was misidentified as Safari.",
+  );
   assert(classNames.has("wizmage-media-starting"), "The bootstrap did not activate the media gate.");
   const failOpen = Array.from(timers.timers.entries()).find(([, timer]) => timer.delay === 2000);
   assert(failOpen, "The bootstrap did not schedule its independent fail-open.");
@@ -136,8 +144,8 @@ function testMediaStartupGate() {
   context.WizmageMediaGate.release();
   assert(!classNames.has("wizmage-media-starting"), "An explicit release left the media gate active.");
 
-  const safariAmazonTimers = makeFakeTimers();
-  const safariAmazonClasses = new Set();
+  const safariMainTimers = makeFakeTimers();
+  const safariMainClasses = new Set();
   const safariVideoAttributes = new Map();
   let safariVideoPauseCount = 0;
   let safariVideoPlayCount = 0;
@@ -159,155 +167,151 @@ function testMediaStartupGate() {
       return Promise.resolve();
     },
   };
-  const safariAmazonContext = vm.createContext({
+  const safariMainContext = vm.createContext({
     document: {
       documentElement: {
         nodeType: 1,
         tagName: "HTML",
         querySelectorAll(selector) { return selector === "video" ? [safariVideo] : []; },
         classList: {
-          contains(value) { return safariAmazonClasses.has(value); },
+          contains(value) { return safariMainClasses.has(value); },
           toggle(value, active) {
-            if (active) safariAmazonClasses.add(value);
-            else safariAmazonClasses.delete(value);
+            if (active) safariMainClasses.add(value);
+            else safariMainClasses.delete(value);
           },
         },
       },
       addEventListener() {},
-      referrer: "",
     },
-    location: { hostname: "www.amazon.com" },
     navigator: {
       userAgent: "Mozilla/5.0 (Macintosh) Version/26.2 Safari/619.1.26",
     },
-    setTimeout: safariAmazonTimers.setTimeout,
-    clearTimeout: safariAmazonTimers.clearTimeout,
+    setTimeout: safariMainTimers.setTimeout,
+    clearTimeout: safariMainTimers.clearTimeout,
   });
-  vm.runInContext(source, safariAmazonContext, { filename: "media-startup-safari-amazon.js" });
+  vm.runInContext(source, safariMainContext, { filename: "media-startup-safari-main.js" });
   assert.equal(
-    safariAmazonContext.WizmageSafariLayoutSafe,
+    safariMainContext.WizmageSafariLayoutSafe,
     true,
-    "Safari on amazon.com did not enter layout-safe mode.",
+    "Safari did not enter browser-wide layout-safe mode.",
   );
   assert(
-    safariAmazonClasses.has("wizmage-safari-media-starting")
-      && !safariAmazonClasses.has("wizmage-media-starting"),
+    safariMainClasses.has("wizmage-safari-media-starting")
+      && !safariMainClasses.has("wizmage-media-starting"),
     "Safari layout-safe mode did not activate its paint-only startup gate.",
   );
   assert.equal(safariVideoPauseCount, 1, "Safari layout-safe mode did not pause initial autoplay media.");
-  const safariFailOpen = Array.from(safariAmazonTimers.timers.entries())
+  const safariFailOpen = Array.from(safariMainTimers.timers.entries())
     .find(([, timer]) => timer.delay === 10000);
   assert(safariFailOpen, "Safari layout-safe mode omitted its bounded fail-open.");
-  safariAmazonContext.WizmageMediaGate.claim();
+  safariMainContext.WizmageMediaGate.claim();
   assert(
-    safariAmazonClasses.has("wizmage-safari-media-starting")
-      && safariAmazonTimers.timers.size === 0,
+    safariMainClasses.has("wizmage-safari-media-starting")
+      && safariMainTimers.timers.size === 0,
     "A controller claim did not preserve and claim the Safari paint-only gate.",
   );
-  safariAmazonContext.WizmageMediaGate.settleVideo(safariVideo, false);
+  safariMainContext.WizmageMediaGate.settleVideo(safariVideo, false);
   assert.equal(
     safariVideoPlayCount,
     0,
     "A safe autoplay video resumed before the initial media gate was released.",
   );
-  safariAmazonContext.WizmageMediaGate.release();
+  safariMainContext.WizmageMediaGate.release();
   assert.equal(
     safariVideoPlayCount,
     0,
     "A safe autoplay video resumed without direct user activation.",
   );
   safariVideoAttributes.set("data-wzm-safari-locked", "1");
-  safariAmazonContext.WizmageMediaGate.guardVideo(safariVideo);
-  safariAmazonContext.WizmageMediaGate.settleVideo(safariVideo, true);
-  safariAmazonContext.WizmageMediaGate.release();
+  safariMainContext.WizmageMediaGate.guardVideo(safariVideo);
+  safariMainContext.WizmageMediaGate.settleVideo(safariVideo, true);
+  safariMainContext.WizmageMediaGate.release();
   assert.equal(
     safariVideoPlayCount,
     0,
     "A blocked autoplay video resumed after filtering settled.",
   );
 
-  const safariGstxTimers = makeFakeTimers();
-  const safariGstxClasses = new Set();
-  const safariGstxVideoAttributes = new Map();
-  const safariGstxListeners = new Map();
-  let safariGstxPauseCount = 0;
-  const safariGstxVideo = {
+  const safariEmbeddedTimers = makeFakeTimers();
+  const safariEmbeddedClasses = new Set();
+  const safariEmbeddedVideoAttributes = new Map();
+  const safariEmbeddedListeners = new Map();
+  let safariEmbeddedPauseCount = 0;
+  const safariEmbeddedVideo = {
     nodeType: 1,
     tagName: "VIDEO",
     autoplay: true,
     paused: false,
     isConnected: true,
-    getAttribute(name) { return safariGstxVideoAttributes.get(name) || null; },
+    getAttribute(name) { return safariEmbeddedVideoAttributes.get(name) || null; },
     querySelectorAll() { return []; },
     pause() {
-      safariGstxPauseCount += 1;
+      safariEmbeddedPauseCount += 1;
       this.paused = true;
     },
   };
-  const safariGstxContext = vm.createContext({
+  const safariEmbeddedContext = vm.createContext({
     top: {},
     document: {
       documentElement: {
         nodeType: 1,
         tagName: "HTML",
-        querySelectorAll(selector) { return selector === "video" ? [safariGstxVideo] : []; },
+        querySelectorAll(selector) { return selector === "video" ? [safariEmbeddedVideo] : []; },
         classList: {
-          contains(value) { return safariGstxClasses.has(value); },
+          contains(value) { return safariEmbeddedClasses.has(value); },
           toggle(value, active) {
-            if (active) safariGstxClasses.add(value);
-            else safariGstxClasses.delete(value);
+            if (active) safariEmbeddedClasses.add(value);
+            else safariEmbeddedClasses.delete(value);
           },
         },
       },
-      addEventListener(type, listener) { safariGstxListeners.set(type, listener); },
-      referrer: "",
+      addEventListener(type, listener) { safariEmbeddedListeners.set(type, listener); },
     },
-    location: { hostname: "www.gstx.org" },
     navigator: {
       userAgent: "Mozilla/5.0 (Macintosh) Version/26.2 Safari/619.1.26",
     },
-    setTimeout: safariGstxTimers.setTimeout,
-    clearTimeout: safariGstxTimers.clearTimeout,
+    setTimeout: safariEmbeddedTimers.setTimeout,
+    clearTimeout: safariEmbeddedTimers.clearTimeout,
   });
-  vm.runInContext(source, safariGstxContext, { filename: "media-startup-safari-gstx.js" });
+  vm.runInContext(source, safariEmbeddedContext, { filename: "media-startup-safari-embedded.js" });
   assert.equal(
-    safariGstxContext.WizmageSafariLayoutSafe,
-    false,
-    "A non-Amazon Safari page unexpectedly entered layout-safe mode.",
+    safariEmbeddedContext.WizmageSafariLayoutSafe,
+    true,
+    "Embedded Safari content did not enter browser-wide layout-safe mode.",
   );
   assert(
-    safariGstxClasses.has("wizmage-media-starting")
-      && !safariGstxClasses.has("wizmage-safari-media-starting"),
-    "A non-Amazon Safari page did not activate the normal startup media gate.",
+    safariEmbeddedClasses.has("wizmage-safari-media-starting")
+      && !safariEmbeddedClasses.has("wizmage-media-starting"),
+    "Embedded Safari content did not activate the paint-only startup gate.",
   );
-  assert.equal(safariGstxPauseCount, 1, "Safari did not pause initial GSTX autoplay media.");
-  safariGstxContext.WizmageMediaGate.claim();
-  safariGstxVideoAttributes.set("data-wzm-locked", "1");
-  safariGstxContext.WizmageMediaGate.settleVideo(safariGstxVideo, true);
+  assert.equal(safariEmbeddedPauseCount, 1, "Safari did not pause an initial embedded autoplay video.");
+  safariEmbeddedContext.WizmageMediaGate.claim();
+  safariEmbeddedVideoAttributes.set("data-wzm-safari-locked", "1");
+  safariEmbeddedContext.WizmageMediaGate.settleVideo(safariEmbeddedVideo, true);
   assert(
-    safariGstxClasses.has("wizmage-video-frame-blocked"),
-    "A blocked embedded GSTX video left its frame overlays visible.",
+    safariEmbeddedClasses.has("wizmage-video-frame-blocked"),
+    "A blocked embedded video left its frame overlays visible.",
   );
-  safariGstxContext.WizmageMediaGate.release();
-  const blockedGstxPauseCount = safariGstxPauseCount;
-  safariGstxListeners.get("play")({ target: safariGstxVideo });
+  safariEmbeddedContext.WizmageMediaGate.release();
+  const blockedEmbeddedPauseCount = safariEmbeddedPauseCount;
+  safariEmbeddedListeners.get("play")({ target: safariEmbeddedVideo });
   assert.equal(
-    safariGstxPauseCount,
-    blockedGstxPauseCount + 1,
-    "Safari allowed a Safe Blocked GSTX video to restart.",
+    safariEmbeddedPauseCount,
+    blockedEmbeddedPauseCount + 1,
+    "Safari allowed a Safe Blocked embedded video to restart.",
   );
-  safariGstxVideoAttributes.delete("data-wzm-locked");
-  safariGstxContext.WizmageMediaGate.settleVideo(safariGstxVideo, false);
+  safariEmbeddedVideoAttributes.delete("data-wzm-safari-locked");
+  safariEmbeddedContext.WizmageMediaGate.settleVideo(safariEmbeddedVideo, false);
   assert(
-    !safariGstxClasses.has("wizmage-video-frame-blocked"),
-    "Allowing an embedded GSTX video left its frame document concealed.",
+    !safariEmbeddedClasses.has("wizmage-video-frame-blocked"),
+    "Allowing an embedded video left its frame document concealed.",
   );
-  const allowedGstxPauseCount = safariGstxPauseCount;
-  safariGstxListeners.get("play")({ target: safariGstxVideo });
+  const allowedEmbeddedPauseCount = safariEmbeddedPauseCount;
+  safariEmbeddedListeners.get("play")({ target: safariEmbeddedVideo });
   assert.equal(
-    safariGstxPauseCount,
-    allowedGstxPauseCount,
-    "Safari kept pausing a GSTX video after Safe Block allowed it.",
+    safariEmbeddedPauseCount,
+    allowedEmbeddedPauseCount,
+    "Safari kept pausing an embedded video after Safe Block allowed it.",
   );
 
   const delayedTimers = makeFakeTimers();

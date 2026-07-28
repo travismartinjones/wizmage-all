@@ -777,11 +777,11 @@
             return;
         }
 
-        // WebKit 21624 can corrupt Amazon's transient textarea renderer when a
-        // content script changes layout during document construction. Keep the
-        // layout untouched until its initial load settles. The paint-only media
-        // gate remains active from document_start, so raw pixels never appear
-        // before the direct-media controller has made its decisions.
+        // WebKit 21624 can corrupt a transient textarea renderer when a content
+        // script changes layout during document construction. Keep every Safari
+        // page layout-neutral until its initial load settles. The paint-only
+        // media gate remains active from document_start, so raw pixels never
+        // appear before the direct-media controller has made its decisions.
         const safeGate = globalThis.WizmageMediaGate;
         if (safeGate && typeof safeGate.claim === 'function')
             safeGate.claim();
