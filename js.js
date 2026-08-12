@@ -278,6 +278,40 @@ function wzmAnalyzeImage(imgUrl, callback) {
             callback(r);
     });
 }
+function wzmAnalyzeImageLocally(img, callback) {
+    if (!callback)
+        callback = function () { };
+    if (!wzmIsSafari || !wzmRuntime || !wzmRuntime.sendMessage || !img || !img.complete || !img.naturalWidth || !img.naturalHeight) {
+        callback(-1);
+        return;
+    }
+    let canvas = document.createElement('canvas'), maxDimension = 320;
+    let scale = Math.min(1, maxDimension / Math.max(img.naturalWidth, img.naturalHeight));
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    try {
+        let context = canvas.getContext('2d', { alpha: false });
+        if (!context) {
+            callback(-1);
+            return;
+        }
+        context.fillStyle = '#fff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(img, 0, 0, canvas.width, canvas.height);
+        let dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        let comma = dataUrl.indexOf(',');
+        if (comma == -1) {
+            callback(-1);
+            return;
+        }
+        wzmSendMessage({ r: 'classifyLocalImage', base64: dataUrl.slice(comma + 1) }, function (response) {
+            callback(response && response.ok ? (response.containsPerson ? 1 : 0) : -1);
+        });
+    }
+    catch (err) {
+        callback(-1);
+    }
+}
 let showAll = false, extensionUrl = wzmGetURL(''), blankImg = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///////yH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==', urlBlankImg = 'url("' + blankImg + '")', eyeCSSUrl = 'url(' + extensionUrl + "eye.svg" + ')', undoCSSUrl = 'url(' + extensionUrl + "undo.png" + ')', tagList = ['IMG', 'DIV', 'SPAN', 'A', 'UL', 'LI', 'TD', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'I', 'STRONG', 'B', 'BIG', 'BUTTON', 'CENTER', 'SECTION', 'TABLE', 'FIGURE', 'ASIDE', 'HEADER', 'VIDEO', 'P', 'ARTICLE', 'PICTURE', 'BA-IMAGE'], tagListCSS = tagList.join(), iframes = [], contentLoaded = false, settings, quotesRegex = /['"]/g;
 function wzmApplyPatternAssetVars(doc) {
     if (!doc || !doc.documentElement || !doc.documentElement.style)
@@ -389,7 +423,10 @@ function applySettingsAndStart(s) {
         //change icon
         wzmSendMessage({ r: 'setColorIcon', toggle: true });
         //do main window
-        DoWin(window, contentLoaded);
+        if (wzmIsSafari)
+            DoSafariWin(window);
+        else
+            DoWin(window, contentLoaded);
     }
     else {
         if (!document.documentElement)
@@ -552,6 +589,472 @@ function RefreshSettings(callback) {
             wzmGetEffectiveSettingsFromStorage(applySettings);
     }, 400);
 }
+function DoSafariWin(win) {
+    let doc = win.document, localSettings = settings, started = false, stopped = false,
+        mutationObserver = null, visibilityObserver = null, queue = [], queueIndex = 0,
+        queueTimer = null, queued = new WeakSet(), observed = new WeakSet(),
+        tracked = new Set(), localAnalysisQueue = [], localAnalysisActive = 0,
+        eye = doc.createElement('div'), hoveredImage = null, hoverFrame = null,
+        pointerX = -1, pointerY = -1;
+
+    function ImageSource(img) {
+        return (img && (img.currentSrc || img.src) || '').trim();
+    }
+    function ClearQueue() {
+        if (queueTimer != null) {
+            clearTimeout(queueTimer);
+            queueTimer = null;
+        }
+        queue = [];
+        queueIndex = 0;
+        queued = new WeakSet();
+    }
+    function SetState(img, state) {
+        if (!img || !img.setAttribute)
+            return;
+        tracked.add(img);
+        if (state && !img.wzmSafariRevealed)
+            img.setAttribute('data-wzm-safari-state', state);
+        else
+            img.removeAttribute('data-wzm-safari-state');
+        if (img == hoveredImage)
+            UpdateEye();
+    }
+    function ResetImage(img) {
+        if (!img)
+            return;
+        img.wzmSafariCheckSrc = '';
+        img.wzmSafariLocalSrc = '';
+        img.wzmSafariResultSrc = '';
+        img.wzmSafariResult = null;
+        img.wzmSafariRevealed = false;
+        SetState(img, '');
+    }
+    function IsRevealable(img) {
+        if (!img || !img.isConnected)
+            return false;
+        let state = img.getAttribute('data-wzm-safari-state');
+        return img.wzmSafariRevealed || state == 'checking' || state == 'unchecked' || state == 'blocked';
+    }
+    function PositionEye() {
+        if (!hoveredImage || !hoveredImage.isConnected)
+            return;
+        let rect = hoveredImage.getBoundingClientRect();
+        eye.style.top = Math.max(0, rect.top) + 'px';
+        eye.style.left = Math.max(0, Math.min(doc.documentElement.clientWidth, rect.right) - 16) + 'px';
+    }
+    function HideEye(clearHovered) {
+        eye.style.display = 'none';
+        eye.setAttribute('aria-hidden', 'true');
+        if (clearHovered)
+            hoveredImage = null;
+    }
+    function UpdateEye() {
+        if (!hoveredImage || !IsRevealable(hoveredImage) || localSettings.noEye) {
+            HideEye(false);
+            return;
+        }
+        if (!eye.parentElement && doc.body)
+            doc.body.appendChild(eye);
+        let revealed = !!hoveredImage.wzmSafariRevealed;
+        eye.style.backgroundImage = revealed ? undoCSSUrl : eyeCSSUrl;
+        eye.setAttribute('aria-label', revealed ? 'Hide image again' : 'Show hidden image');
+        eye.setAttribute('title', revealed ? 'Hide image again' : 'Show hidden image');
+        eye.setAttribute('aria-hidden', 'false');
+        PositionEye();
+        eye.style.display = 'block';
+    }
+    function RevealImage(img) {
+        if (!img || !IsRevealable(img))
+            return;
+        img.wzmSafariRevealed = true;
+        img.removeAttribute('data-wzm-safari-state');
+        UpdateEye();
+    }
+    function RehideImage(img) {
+        if (!img || !img.wzmSafariRevealed)
+            return;
+        img.wzmSafariRevealed = false;
+        if (img.wzmSafariResultSrc == ImageSource(img))
+            SetState(img, StateForResult(img.wzmSafariResult));
+        else {
+            SetState(img, 'checking');
+            QueueImage(img);
+        }
+        UpdateEye();
+    }
+    function EventImage(target) {
+        return target && target.tagName == 'IMG' && tracked.has(target) ? target : null;
+    }
+    function ImageAtPoint(x, y, target) {
+        let direct = EventImage(target);
+        if (direct && IsRevealable(direct))
+            return direct;
+
+        // A page may place buttons, captions, or other controls above an image
+        // on hover. Search the rendered stack so those overlays do not make the
+        // underlying filtered image lose its reveal controls.
+        if (doc.elementsFromPoint) {
+            let stack = doc.elementsFromPoint(x, y);
+            for (let i = 0; i < stack.length; i++) {
+                let img = EventImage(stack[i]);
+                if (img && IsRevealable(img))
+                    return img;
+            }
+        }
+
+        // Some WebKit compositing layers omit obscured elements from the stack.
+        // Retain the current image while the pointer is still inside its bounds.
+        if (hoveredImage && IsRevealable(hoveredImage)) {
+            let rect = hoveredImage.getBoundingClientRect();
+            if (x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom)
+                return hoveredImage;
+        }
+        return null;
+    }
+    function UpdatePointerHover() {
+        hoverFrame = null;
+        if (stopped)
+            return;
+        let nextImage = ImageAtPoint(pointerX, pointerY, null);
+        if (nextImage == hoveredImage) {
+            if (nextImage)
+                UpdateEye();
+            return;
+        }
+        hoveredImage = nextImage;
+        if (hoveredImage)
+            UpdateEye();
+        else
+            HideEye(false);
+    }
+    function SchedulePointerHover() {
+        if (hoverFrame != null)
+            return;
+        hoverFrame = win.requestAnimationFrame(UpdatePointerHover);
+    }
+    function SafariMouseMove(e) {
+        pointerX = e.clientX;
+        pointerY = e.clientY;
+        let direct = EventImage(e.target);
+        if (direct && IsRevealable(direct)) {
+            hoveredImage = direct;
+            UpdateEye();
+        }
+        SchedulePointerHover();
+    }
+    function SafariKeyDown(e) {
+        if (!e.altKey)
+            return;
+        if (!hoveredImage)
+            hoveredImage = ImageAtPoint(pointerX, pointerY, e.target);
+        if (!hoveredImage)
+            return;
+        if ((e.code == 'KeyA' || e.keyCode == 65) && !hoveredImage.wzmSafariRevealed) {
+            e.preventDefault();
+            e.stopPropagation();
+            RevealImage(hoveredImage);
+            HideEye(false);
+        }
+        else if ((e.code == 'KeyZ' || e.keyCode == 90) && hoveredImage.wzmSafariRevealed) {
+            e.preventDefault();
+            e.stopPropagation();
+            RehideImage(hoveredImage);
+            HideEye(false);
+        }
+    }
+    function SafariScroll() {
+        SchedulePointerHover();
+    }
+    function SizeNeedsBlocking(width, height) {
+        let maxSafe = +localSettings.maxSafe || 32;
+        return (width == 0 || width > maxSafe) && (height == 0 || height > maxSafe);
+    }
+    function IsCandidate(img) {
+        if (!img || !img.isConnected)
+            return false;
+        let src = ImageSource(img);
+        if (!src || src == blankImg || /\.svg([?#].*)?$/i.test(src) || src.startsWith('data:image/svg+xml'))
+            return false;
+        // Ignore transparent/lazy placeholders. The load listener queues the
+        // real source later without observing page-owned src attributes.
+        if (src.startsWith('data:') && img.naturalWidth <= 2 && img.naturalHeight <= 2)
+            return false;
+        let width = img.width || img.naturalWidth || 0;
+        let height = img.height || img.naturalHeight || 0;
+        return SizeNeedsBlocking(width, height);
+    }
+    function ScheduleQueue() {
+        if (stopped || queueTimer != null || queueIndex >= queue.length)
+            return;
+        queueTimer = setTimeout(ProcessQueue, 16);
+    }
+    function QueueImage(img) {
+        if (!img || stopped || queued.has(img))
+            return;
+        queued.add(img);
+        queue.push(img);
+        ScheduleQueue();
+    }
+    function ProcessQueue() {
+        queueTimer = null;
+        if (stopped) {
+            ClearQueue();
+            return;
+        }
+        let startedAt = Date.now(), count = 0;
+        while (queueIndex < queue.length && count < 4 && Date.now() - startedAt < 4) {
+            let img = queue[queueIndex++];
+            queued.delete(img);
+            ProcessImage(img);
+            count++;
+        }
+        if (queueIndex >= queue.length) {
+            queue = [];
+            queueIndex = 0;
+        }
+        else {
+            ScheduleQueue();
+        }
+    }
+    function StateForResult(result) {
+        if (Number(result) === 1)
+            return 'blocked';
+        if (Number(result) === 0)
+            return localSettings.alwaysBlock && !localSettings.allowSafeDomain ? 'blocked' : '';
+        return 'unchecked';
+    }
+    function CompleteImage(img, src, result) {
+        if (stopped || !img || !img.isConnected || ImageSource(img) != src)
+            return;
+        img.wzmSafariCheckSrc = '';
+        img.wzmSafariLocalSrc = '';
+        img.wzmSafariResultSrc = src;
+        img.wzmSafariResult = Number(result);
+        SetState(img, StateForResult(result));
+    }
+    function PumpLocalAnalysis() {
+        while (!stopped && localAnalysisActive < 2 && localAnalysisQueue.length) {
+            let item = localAnalysisQueue.shift();
+            if (!item.img || !item.img.isConnected || ImageSource(item.img) != item.src)
+                continue;
+            localAnalysisActive++;
+            wzmAnalyzeImageLocally(item.img, function (result) {
+                localAnalysisActive--;
+                CompleteImage(item.img, item.src, result);
+                PumpLocalAnalysis();
+            });
+        }
+    }
+    function QueueLocalAnalysis(img, src) {
+        if (!img || img.wzmSafariLocalSrc == src)
+            return;
+        img.wzmSafariLocalSrc = src;
+        localAnalysisQueue.push({ img, src });
+        PumpLocalAnalysis();
+    }
+    function ProcessImage(img) {
+        if (stopped || !img || !img.isConnected)
+            return;
+        let src = ImageSource(img);
+        if (!IsCandidate(img)) {
+            if (img.wzmSafariResultSrc != src)
+                SetState(img, '');
+            return;
+        }
+        if (img.wzmSafariResultSrc == src) {
+            SetState(img, StateForResult(img.wzmSafariResult));
+            return;
+        }
+        if (img.wzmSafariCheckSrc == src)
+            return;
+        img.wzmSafariCheckSrc = src;
+        SetState(img, 'checking');
+        wzmAnalyzeImage(src, function (result) {
+            if (stopped || !img.isConnected || ImageSource(img) != src)
+                return;
+            if (Number(result) === -1) {
+                QueueLocalAnalysis(img, src);
+                return;
+            }
+            CompleteImage(img, src, result);
+        });
+    }
+    function ObserveImage(img) {
+        if (!img || stopped)
+            return;
+        if (!img.wzmSafariLoadListener) {
+            img.wzmSafariLoadListener = function () {
+                img.wzmSafariCheckSrc = '';
+                img.wzmSafariResultSrc = '';
+                img.wzmSafariRevealed = false;
+                QueueImage(img);
+            };
+            img.addEventListener('load', img.wzmSafariLoadListener);
+        }
+        tracked.add(img);
+        if (visibilityObserver && !observed.has(img)) {
+            observed.add(img);
+            visibilityObserver.observe(img);
+        }
+        else if (!visibilityObserver) {
+            QueueImage(img);
+        }
+    }
+    function ObserveTree(root) {
+        if (!root)
+            return;
+        if (root.tagName == 'IMG')
+            ObserveImage(root);
+        if (root.querySelectorAll) {
+            let images = root.querySelectorAll('img');
+            for (let i = 0; i < images.length; i++)
+                ObserveImage(images[i]);
+        }
+    }
+    function Disconnect() {
+        stopped = true;
+        ClearQueue();
+        localAnalysisQueue = [];
+        doc.removeEventListener('mousemove', SafariMouseMove, true);
+        doc.removeEventListener('keydown', SafariKeyDown, true);
+        win.removeEventListener('scroll', SafariScroll, true);
+        if (hoverFrame != null) {
+            win.cancelAnimationFrame(hoverFrame);
+            hoverFrame = null;
+        }
+        HideEye(true);
+        if (eye.parentElement)
+            eye.parentElement.removeChild(eye);
+        if (mutationObserver) {
+            mutationObserver.disconnect();
+            mutationObserver = null;
+        }
+        if (visibilityObserver) {
+            visibilityObserver.disconnect();
+            visibilityObserver = null;
+        }
+        observed = new WeakSet();
+        for (let img of tracked) {
+            if (!img)
+                continue;
+            img.wzmSafariRevealed = false;
+            SetState(img, '');
+            if (img.wzmSafariLoadListener) {
+                img.removeEventListener('load', img.wzmSafariLoadListener);
+                img.wzmSafariLoadListener = null;
+            }
+        }
+        tracked.clear();
+        RemoveClass(doc.documentElement, 'wizmage-running');
+        AddClass(doc.documentElement, 'wizmage-show-html');
+    }
+    function Start() {
+        if (started && !stopped)
+            return;
+        if (!doc.body || !doc.documentElement) {
+            win.addEventListener('DOMContentLoaded', Start, { once: true });
+            return;
+        }
+        started = true;
+        stopped = false;
+        wzmApplyPatternAssetVars(doc);
+        AddClass(doc.documentElement, 'wizmage-running wizmage-show-html');
+        eye.style.display = 'none';
+        eye.style.width = eye.style.height = '16px';
+        eye.style.position = 'fixed';
+        eye.style.zIndex = '100000000';
+        eye.style.cursor = 'pointer';
+        eye.style.padding = '0';
+        eye.style.margin = '0';
+        eye.style.opacity = '.5';
+        eye.style.backgroundRepeat = 'no-repeat';
+        eye.style.backgroundPosition = 'center';
+        eye.style.backgroundSize = 'contain';
+        eye.setAttribute('role', 'button');
+        eye.setAttribute('tabindex', '0');
+        eye.setAttribute('aria-hidden', 'true');
+        eye.onclick = function (e) {
+            if (!hoveredImage)
+                return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (hoveredImage.wzmSafariRevealed)
+                RehideImage(hoveredImage);
+            else
+                RevealImage(hoveredImage);
+        };
+        eye.onkeydown = function (e) {
+            if (e.key != 'Enter' && e.key != ' ')
+                return;
+            e.preventDefault();
+            eye.click();
+        };
+        eye.onmouseleave = function (e) {
+            if (!hoveredImage || e.relatedTarget != hoveredImage)
+                HideEye(true);
+        };
+        doc.body.appendChild(eye);
+        doc.addEventListener('mousemove', SafariMouseMove, true);
+        doc.addEventListener('keydown', SafariKeyDown, true);
+        win.addEventListener('scroll', SafariScroll, true);
+        if (typeof IntersectionObserver !== 'undefined') {
+            visibilityObserver = new IntersectionObserver(function (entries) {
+                for (let entry of entries) {
+                    if (entry.isIntersecting)
+                        QueueImage(entry.target);
+                }
+            }, { root: null, rootMargin: '400px 0px', threshold: 0 });
+        }
+        mutationObserver = new MutationObserver(function (mutations) {
+            for (let mutation of mutations) {
+                if (mutation.type == 'attributes') {
+                    let el = mutation.target;
+                    if (el.tagName == 'IMG')
+                        QueueImage(el);
+                    else if (el.tagName == 'SOURCE' && el.parentElement && el.parentElement.tagName == 'PICTURE') {
+                        let img = el.parentElement.querySelector('img');
+                        if (img)
+                            QueueImage(img);
+                    }
+                    continue;
+                }
+                for (let node of mutation.addedNodes)
+                    ObserveTree(node);
+            }
+        });
+        // Dynamic pages commonly reuse an <img> and only replace src/srcset.
+        // Watching those two media attributes is substantially cheaper than
+        // observing page-owned class/style churn, while keeping filtering
+        // correct for virtualized and lazy-loaded galleries.
+        mutationObserver.observe(doc.body, {
+            subtree: true,
+            childList: true,
+            attributes: true,
+            attributeFilter: ['src', 'srcset']
+        });
+        ObserveTree(doc.body);
+    }
+    win.wzmShowImages = Disconnect;
+    win.wzmRestart = function () {
+        if (!stopped)
+            return false;
+        Start();
+        return true;
+    };
+    win.wzmUpdateSettings = function (next) {
+        if (!next || typeof next !== 'object')
+            return;
+        localSettings = wzmNormalizeSettings(next);
+        for (let img of tracked) {
+            if (!img || !img.isConnected)
+                continue;
+            ResetImage(img);
+            QueueImage(img);
+        }
+    };
+    Start();
+}
 function DoWin(win, winContentLoaded) {
     let _settings = settings, //DoWin is only called after settings is set
     doc = win.document, observers = [], eye = doc.createElement('div'), mouseMoved = false, mouseEvent, mouseOverEl, elList = [], hasStarted = false,
@@ -559,7 +1062,10 @@ function DoWin(win, winContentLoaded) {
     allowSafeDomain = _settings.alwaysBlock ? !!_settings.allowSafeDomain : false,
     twoFingerTapState = 0, twoFingerTapPossible = false, twoFingerTapMoved = false, twoFingerStartX = 0, twoFingerStartY = 0,
     showSafeImagesForPage = (_settings.alwaysBlock && allowSafeDomain),
-    lifecycleRescanIX = 0, intervalsStarted = false;
+    lifecycleRescanIX = 0, intervalsStarted = false,
+    backgroundScanQueue = [], backgroundScanIndex = 0, backgroundScanTimer = null,
+    backgroundScanQueued = new WeakSet(), backgroundObserved = new WeakSet(),
+    backgroundVisibilityObserver = null;
     //global show images
     win.wzmShowImages = function () {
         if (hasStarted) {
@@ -589,6 +1095,12 @@ function DoWin(win, winContentLoaded) {
             for (let obs of observers)
                 obs.disconnect();
             observers.length = 0;
+            ClearBackgroundScanQueue();
+            if (backgroundVisibilityObserver) {
+                backgroundVisibilityObserver.disconnect();
+                backgroundVisibilityObserver = null;
+                backgroundObserved = new WeakSet();
+            }
             RemoveClass(doc.documentElement, 'wizmage-running');
             hasStarted = false;
         }
@@ -722,6 +1234,8 @@ function DoWin(win, winContentLoaded) {
                                 AddClass(el, 'wizmage-running');
                         }
                         let className = GetClassName(el), oldHasLazy = m.oldValue != null && m.oldValue.indexOf('lazy') > -1, newHasLazy = className.indexOf('lazy') > -1, oldHasImg = el.wzmWizmaged && m.oldValue != null && m.oldValue.indexOf('img') > -1, newHasImg = el.wzmWizmaged && className.indexOf('img') > -1, addedBG = (!m.oldValue || m.oldValue.indexOf('_bg') == -1) && className.indexOf('_bg') > -1;
+                        if (wzmIsSafari)
+                            continue;
                         if (oldHasLazy != newHasLazy || (!oldHasImg && newHasImg) || addedBG)
                             DoElements(el, true);
                     }
@@ -758,7 +1272,13 @@ function DoWin(win, winContentLoaded) {
                 }
             }
         });
-        observer.observe(isShadow ? body : doc, { subtree: true, childList: true, attributes: true, attributeOldValue: true });
+        observer.observe(isShadow ? body : doc, {
+            subtree: true,
+            childList: true,
+            attributes: true,
+            attributeOldValue: true,
+            attributeFilter: ['class', 'style', 'src', 'srcset', 'sizes', 'loading', 'data-src', 'data-srcset', 'lazy-src', 'lazy-srcset']
+        });
         observers.push(observer);
     }
     //process all elements with background-image, and observe mutations for new ones
@@ -810,9 +1330,12 @@ function DoWin(win, winContentLoaded) {
             setInterval(CheckMousePosition, 250);
             setInterval(UpdateElRects, 3000);
         }
-        for (let to of [250, 1500, 4500, 7500]) {
-            setTimeout(UpdateElRects, to);
-            setTimeout(RescanElements, to);
+        for (let to of [500, 3000]) {
+            setTimeout(function () {
+                UpdateElRects();
+                if (!wzmIsSafari)
+                    RescanElements();
+            }, to);
         }
         //ALT-a, ALT-z
         doc.addEventListener('keydown', DocKeyDown);
@@ -882,12 +1405,109 @@ function DoWin(win, winContentLoaded) {
             return;
         DoElements(doc.body, false);
     }
-    function DoElements(el, includeEl) {
-        if (includeEl && tagList.indexOf(el.tagName) > -1)
+    function IsMediaElement(el) {
+        return !!el && /^(IMG|PICTURE|VIDEO)$/.test(el.tagName);
+    }
+    function ClearBackgroundScanQueue() {
+        if (backgroundScanTimer != null) {
+            clearTimeout(backgroundScanTimer);
+            backgroundScanTimer = null;
+        }
+        backgroundScanQueue = [];
+        backgroundScanIndex = 0;
+        backgroundScanQueued = new WeakSet();
+    }
+    function ScheduleBackgroundScan() {
+        if (showAll || backgroundScanTimer != null || backgroundScanIndex >= backgroundScanQueue.length)
+            return;
+        // Leave a rendering opportunity between batches. A chain of zero-delay
+        // timers still starves WebKit on large, frequently changing pages.
+        backgroundScanTimer = setTimeout(ProcessBackgroundScanQueue, 16);
+    }
+    function QueueBackgroundElement(el) {
+        if (!el || showAll || backgroundScanQueued.has(el))
+            return;
+        backgroundScanQueued.add(el);
+        backgroundScanQueue.push(el);
+        ScheduleBackgroundScan();
+    }
+    function ProcessBackgroundScanQueue() {
+        backgroundScanTimer = null;
+        if (showAll) {
+            ClearBackgroundScanQueue();
+            return;
+        }
+        let startedAt = Date.now(), processed = 0;
+        while (backgroundScanIndex < backgroundScanQueue.length && processed < 12 && Date.now() - startedAt < 4) {
+            let el = backgroundScanQueue[backgroundScanIndex++];
+            backgroundScanQueued.delete(el);
+            if (el && el.isConnected)
+                DoElement.call(el);
+            processed++;
+        }
+        if (backgroundScanIndex >= backgroundScanQueue.length) {
+            backgroundScanQueue = [];
+            backgroundScanIndex = 0;
+        }
+        else {
+            ScheduleBackgroundScan();
+        }
+    }
+    function EnsureBackgroundVisibilityObserver() {
+        if (backgroundVisibilityObserver || typeof IntersectionObserver === 'undefined')
+            return backgroundVisibilityObserver;
+        backgroundVisibilityObserver = new IntersectionObserver(function (entries) {
+            for (let entry of entries) {
+                if (!entry.isIntersecting)
+                    continue;
+                let el = entry.target;
+                backgroundVisibilityObserver.unobserve(el);
+                backgroundObserved.delete(el);
+                QueueBackgroundElement(el);
+            }
+        }, { root: null, rootMargin: '600px 0px', threshold: 0 });
+        return backgroundVisibilityObserver;
+    }
+    function ObserveBackgroundElement(el) {
+        if (!el || showAll)
+            return;
+        // Inline backgrounds are cheap to identify without a style/layout flush.
+        // Process them even when offscreen; defer computed-style discovery until
+        // an element is near the viewport.
+        if (ExtractCssUrl(el.getAttribute && el.getAttribute('style') || '')) {
+            QueueBackgroundElement(el);
+            return;
+        }
+        let observer = EnsureBackgroundVisibilityObserver();
+        if (!observer) {
+            QueueBackgroundElement(el);
+            return;
+        }
+        if (!backgroundObserved.has(el)) {
+            backgroundObserved.add(el);
+            observer.observe(el);
+        }
+    }
+    function ProcessElement(el) {
+        if (IsMediaElement(el))
             DoElement.call(el);
-        let all = el.querySelectorAll(tagListCSS);
+        else {
+            if (el.shadowRoot && !el.shadowRoot.wzmShadowSetup)
+                setupBody(el.shadowRoot);
+            ObserveBackgroundElement(el);
+        }
+    }
+    function DoElements(el, includeEl) {
+        if (!el || !el.querySelectorAll)
+            return;
+        // WebKit's computed-style walk for every generic element can monopolize
+        // the main thread on virtualized feeds. Safari still filters real media;
+        // CSS-background discovery stays enabled in browsers where it is cheap.
+        if (includeEl && tagList.indexOf(el.tagName) > -1 && (!wzmIsSafari || IsMediaElement(el)))
+            ProcessElement(el);
+        let all = el.querySelectorAll(wzmIsSafari ? 'IMG,PICTURE,VIDEO' : tagListCSS);
         for (let i = 0, max = all.length; i < max; i++)
-            DoElement.call(all[i]);
+            ProcessElement(all[i]);
     }
     function DoIframe(iframe) {
         if ((iframe.src && iframe.src != "about:blank" && iframe.src.substr(0, 11) != 'javascript:') || !iframe.contentWindow)
@@ -1192,10 +1812,18 @@ function DoWin(win, winContentLoaded) {
                         el.wzmHasTitleSetup = true;
                     }
                     imgUrl = srcForCheck;
-                    DoHidden(el, true);
-                    DoImgSrc(el, true);
-                    DoWizmageBG(el, true);
-                    el.src = blankImg;
+                    if (wzmIsSafari) {
+                        // Replacing src/srcset causes a feedback loop with React
+                        // image loaders in Safari. Mask the replaced element in
+                        // CSS so the page remains the owner of those attributes.
+                        LockSafariImage(el);
+                    }
+                    else {
+                        DoHidden(el, true);
+                        DoImgSrc(el, true);
+                        DoWizmageBG(el, true);
+                        el.src = blankImg;
+                    }
                 }
                 else { //small image
                     MarkWizmaged(el, false); //maybe !el.complete initially
@@ -1215,7 +1843,13 @@ function DoWin(win, winContentLoaded) {
             MarkWizmaged(el, true);
         }
         else {
-            let compStyle = getComputedStyle(el), bg = GetElementBackground(el, compStyle), bgimg = bg ? bg.image : '', bgUrl = ResolveImageUrl(ExtractCssUrl(bgimg)), width = parseInt(compStyle.width) || el.clientWidth, height = parseInt(compStyle.height) || el.clientHeight; //as per https://developer.mozilla.org/en/docs/Web/API/window.getComputedStyle, getComputedStyle will return the 'used values' for width and height, which is always in px. We also use clientXXX, since sometimes compStyle returns NaN.
+            let compStyle = getComputedStyle(el), bg = GetElementBackground(el, compStyle), bgimg = bg ? bg.image : '', bgUrl = ResolveImageUrl(ExtractCssUrl(bgimg));
+            if (!bgUrl) {
+                if (el.shadowRoot && !el.shadowRoot.wzmShadowSetup)
+                    setupBody(el.shadowRoot);
+                return;
+            }
+            let width = parseInt(compStyle.width) || el.clientWidth, height = parseInt(compStyle.height) || el.clientHeight; //as per https://developer.mozilla.org/en/docs/Web/API/window.getComputedStyle, getComputedStyle will return the 'used values' for width and height, which is always in px. We also use clientXXX, since sometimes compStyle returns NaN.
             let likelyProfileImage = IsLikelyProfileImage(el, bgUrl);
             let likelyPageChromeImage = IsLikelyPageChromeImage(el, bgUrl, width, height);
             let forceNaturalBg = el.wzmForceBgBlockSrc == bgUrl;
@@ -1359,8 +1993,9 @@ function DoWin(win, winContentLoaded) {
                 el.wzmUnchecked = true;
             el.wzmWizmaged = true;
             el.wzmBeenBlocked = true;
-            if (elList.indexOf(el) == -1) {
+            if (!el.wzmTracked) {
                 elList.push(el);
+                el.wzmTracked = true;
                 el.wzmRect = el.getBoundingClientRect();
             }
         }
@@ -1592,6 +2227,23 @@ function DoWin(win, winContentLoaded) {
             el.wzmSetVideoSize = false;
         }
     }
+    function LockSafariImage(el) {
+        if (!el)
+            return;
+        DoHidden(el, false);
+        DoWizmageBG(el, true);
+        SetWzmAttr(el, 'data-wzm-locked', '1');
+        AddClassOnce(el, 'wizmage-locked');
+        el.wzmImageLockClassApplied = true;
+    }
+    function UnlockSafariImage(el) {
+        if (!el)
+            return;
+        RemoveWzmAttr(el, 'data-wzm-locked');
+        RemoveClass(el, 'wizmage-locked');
+        el.wzmImageLockClassApplied = false;
+        DoWizmageBG(el, false);
+    }
     function RehideEl(el) {
         if (!el || !el.wzmBeenBlocked)
             return;
@@ -1604,10 +2256,15 @@ function DoWin(win, winContentLoaded) {
                 node.oldsrcset = prevSrcSet;
         };
         if (isImg(el)) {
-            DoHidden(el, true);
-            preserveSrc(el);
-            DoWizmageBG(el, true);
-            el.src = blankImg;
+            if (wzmIsSafari) {
+                LockSafariImage(el);
+            }
+            else {
+                DoHidden(el, true);
+                preserveSrc(el);
+                DoWizmageBG(el, true);
+                el.src = blankImg;
+            }
             el.wzmAllowSrc = null;
         }
         else if (el.tagName == 'VIDEO') {
@@ -1637,6 +2294,10 @@ function DoWin(win, winContentLoaded) {
             SetWzmAttr(el, 'data-wzm-hide', '1');
         if (el.wzmHasWizmageBG)
             DoWizmageBG(el, true);
+        if (wzmIsSafari && isImg(el)) {
+            SetWzmAttr(el, 'data-wzm-locked', '1');
+            AddClassOnce(el, 'wizmage-locked');
+        }
         if (el.tagName == 'VIDEO' && el.wzmWizmaged)
             SetWzmAttr(el, 'data-wzm-locked', '1');
     }
@@ -1987,10 +2648,18 @@ function DoWin(win, winContentLoaded) {
         eye.style.left = (left + scrollX - 16) + 'px';
     }
     function UpdateElRects() {
+        let connected = [];
         for (let el of elList) {
+            if (!el || !el.isConnected) {
+                if (el)
+                    el.wzmTracked = false;
+                continue;
+            }
+            connected.push(el);
             if (el.wzmBeenBlocked)
                 el.wzmRect = el.getBoundingClientRect();
         }
+        elList = connected;
     }
     function CheckMousePosition() {
         if (wzmIsIOS)
@@ -2047,9 +2716,13 @@ function DoWin(win, winContentLoaded) {
         let el = this;
         DoHidden(el, false);
         if (isImg(el)) {
-            DoImgSrc(el, false);
+            if (wzmIsSafari)
+                UnlockSafariImage(el);
+            else {
+                DoImgSrc(el, false);
+                DoWizmageBG(el, false);
+            }
             el.wzmAllowSrc = { src: el.src, srcset: el.srcset };
-            DoWizmageBG(el, false);
             RemoveWzmAttr(el, 'data-wzm-light');
             RemoveClass(el, 'wizmage-light');
         }

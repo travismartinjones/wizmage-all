@@ -23,7 +23,7 @@
    "manifest_version": 3,
    "name": "Wizmage Image Hider",
    "options_page": "options.htm",
-   "permissions": [ "tabs", "storage" ],
+   "permissions": [ "tabs", "storage", "nativeMessaging" ],
    "short_name": "Wizmage",
    "version": "4.1.8",
    "web_accessible_resources": [ {

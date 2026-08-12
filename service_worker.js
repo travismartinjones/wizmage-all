@@ -191,6 +191,7 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         'getUrlList',
         'getSettings',
         'getAnalyzeResponse',
+        'classifyLocalImage',
         'urlListAdd',
         'urlListRemove',
         'setUrlList',
@@ -379,9 +380,50 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
                 analyze(request.imgUrl, request.pageUrl, blockTarget, current.serverUrl || DEFAULT_SERVER_URL, sendResponse);
                 break;
             }
+            case 'classifyLocalImage': {
+                if (typeof request.base64 !== 'string' || !request.base64) {
+                    sendResponse({ ok: false });
+                    break;
+                }
+                sendResponse(await classifyLocalImage(request.base64));
+                break;
+            }
         }
     }
 });
+
+function classifyLocalImage(base64) {
+    return new Promise(resolve => {
+        const sendNativeMessage = wzmChrome && wzmChrome.runtime && wzmChrome.runtime.sendNativeMessage;
+        if (typeof sendNativeMessage !== 'function') {
+            resolve({ ok: false });
+            return;
+        }
+
+        let completed = false;
+        const finish = response => {
+            if (completed)
+                return;
+            completed = true;
+            clearTimeout(timer);
+            resolve(response && response.ok ? response : { ok: false });
+        };
+        const timer = setTimeout(() => finish({ ok: false }), 10000);
+
+        try {
+            const maybePromise = sendNativeMessage.call(
+                wzmChrome.runtime,
+                'com.travismartinjones.WizmageImageHider',
+                { command: 'classifyLocalImage', base64 },
+                finish
+            );
+            if (maybePromise && typeof maybePromise.then === 'function')
+                maybePromise.then(finish).catch(() => finish({ ok: false }));
+        } catch (err) {
+            finish({ ok: false });
+        }
+    });
+}
 
 async function getSettings() {
     if (!settings) {
